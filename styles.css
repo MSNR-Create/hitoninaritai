@@ -145,3 +145,17 @@ body { position: fixed; inset: 0; }
  .app-shell .bottom-menu { min-height:42px; }
  .viewport > .selection-panel { max-height:35px; }
 }
+
+/* v1.2: safe map overlays, property context dialog, and no page scrolling. */
+.map-sheet{background:rgba(17,43,54,.92)}
+.map-sheet[data-panel="build"]{height:min(236px,55%)}
+.map-sheet[data-panel="property"]{height:min(218px,48%)}
+#propertyDialog{max-height:min(78dvh,540px);overflow:auto;width:min(92vw,425px);padding:18px;}
+#propertyDialog h2{font-size:19px;margin:0 0 10px}
+#propertyDialog p{white-space:pre-line;font-size:13px;line-height:1.7}
+.property-dialog-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.property-dialog-actions button{padding:12px 6px;min-height:44px}
+.property-dialog-actions button:disabled{opacity:.45}
+.property-close{width:100%;background:#375461;color:#eaf5ec}
+.surface-summary{border:1px solid #527a75;border-radius:8px;padding:8px;background:#1b4145;color:#ceeedb!important}
+@media(max-width:520px){.map-sheet[data-panel="build"]{height:min(242px,55%)}.property-dialog-actions button{font-size:13px}}
