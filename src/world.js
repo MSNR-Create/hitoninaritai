@@ -38,6 +38,10 @@ export function makeWorlds() {
     ],
     accents: tileSet([[2,9],[3,10],[11,7],[12,7],[7,14],[9,14],[1,7],[13,10]])
   };
+  // Keep floor corridors outside building footprints; no hidden or overdrawn tiles.
+  for(const b of underground.buildings){
+    for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)paths.delete(coords(x,y));
+  }
   const surface = {
     id: 'surface', name: '地上', subtitle: '夜の人間社会につながる街',
     closed: new Set(), paths: new Set(),
