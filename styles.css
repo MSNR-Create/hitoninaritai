@@ -174,3 +174,35 @@ body { position: fixed; inset: 0; }
 .market-listing-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:5px;font-size:12px;margin-bottom:7px}.market-listing-head small{color:#aecbcc}.market-listing p{font-size:12px}.market-listing-price{width:80px}
 .market-history-row{font-size:11px;background:#183945;padding:7px;border-radius:7px}
 @media(max-width:390px){.market-item{grid-template-columns:minmax(0,1fr) 92px}.market-item button{grid-column:1/-1}.market-controls{grid-template-columns:1fr 1fr}}
+
+/* v1.5: unified accessible control palette; never pale button with pale text. */
+:root { --ui-button:#285064;--ui-button-border:#7babb3;--ui-text:#f4fbf7;--ui-active:#376c5c;--ui-danger:#713d47; }
+button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; }
+.map-sheet button:not(:disabled),.market-item button:not(:disabled),.market-listing button:not(:disabled),
+.economy-panel button:not(:disabled),.property-dialog-actions button:not(:disabled),
+#moreDialog button:not(:disabled),.sheet-header button:not(:disabled),
+.dialog-actions button:not(:disabled),.market-subhead button:not(:disabled){
+ color:var(--ui-text)!important;background:var(--ui-button)!important;
+ border:1.5px solid var(--ui-button-border)!important;
+ border-radius:9px;min-height:35px;font-weight:750;
+ box-shadow:inset 0 1px 0 #ffffff14,0 2px 0 #051b2499;
+}
+.map-sheet button.active:not(:disabled),.map-sheet button[aria-pressed="true"]:not(:disabled),
+.bottom-menu button.active:not(:disabled),.layers button.active:not(:disabled){
+ color:#fafff4!important;background:var(--ui-active)!important;border:2px solid #a5dbc4!important;
+}
+.map-sheet button:disabled,.market-item button:disabled,.market-listing button:disabled,
+.economy-panel button:disabled,dialog button:disabled {
+ color:#c3d2d4!important;background:#344a53!important;border:1px dashed #60757b!important;
+ opacity:.7;cursor:not-allowed;box-shadow:none;
+}
+.map-sheet button:focus-visible,dialog button:focus-visible,.bottom-menu button:focus-visible{outline:3px solid #f9e28b;outline-offset:1px}
+.map-sheet input,.map-sheet select,.map-sheet textarea,dialog select,dialog input{
+ color:#f6fbf7!important;background:#143541!important;border:1.5px solid #7ca5ab!important;
+ border-radius:8px;min-height:35px;accent-color:#a3d6c0;
+}
+.map-sheet select option { background:#173844;color:#fff; }
+.map-sheet input:disabled,.map-sheet select:disabled{opacity:.65}
+.property-dialog-actions button:last-child:not(:disabled) {border-color:#d29b97!important}
+.controls #rotateView{font-size:20px;min-width:37px;}
+@media(max-width:390px){.controls{gap:3px;padding:4px}.controls button{min-width:31px;height:33px}.controls span{min-width:34px}}
