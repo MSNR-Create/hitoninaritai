@@ -14,6 +14,7 @@ import { SUPPLIES, RESEARCH, initialColony, buySupply, beginResearch, advanceCol
 import { initialSocial, advanceSocial, recordDeaths, NEIGHBORS } from './social.js';
 import { serializeSession, validateSession, hydrateWorld, saveSnapshot, loadSnapshot, clearSnapshots } from './persistence.js';
 import { sceneDefinition, paintEvent, eventsForDay } from './event-scenes.js';
+import { createLedger, addTransaction, daySummary, balanceSeries, validateLedger } from './finance.js';
 
 const canvas=document.getElementById('scene');const ctx=canvas.getContext('2d',{alpha:false});
 const viewport=document.getElementById('viewport');const worlds=makeWorlds();
@@ -24,6 +25,8 @@ let colony=initialColony();
 let social=initialSocial();
 let game=initialGame(), simAccumulator=0,lastTime=null,speed=1,paused=false;
 let eventQueue=[], activeEvent=null, eventFrame=null, savePending=false, endingUnlocked=false;
+let ledger=createLedger(300,1);
+function moneyChange(amount, category, note, day=game.day){if(amount!==0)ledger=addTransaction(ledger,{day,amount,category,note});}
 let tool='inspect',pathStart=null,hoverTile=null,placement=null,resale=initialResale(),rented=[],owned=[],corridorChoice=null,buildChoice=null,economyDay=game.day,lastRentDue=0; 
 const el=id=>document.getElementById(id);
 
@@ -94,7 +97,7 @@ function buildAt(tile){
   if(!second){buildChoice={kind:'unlock',x:tile.x,y:tile.y};status(`${zone.name}：開放費用 ${zone.cost}G。もう一度この区画をタップして確定。`);updatePlacement();return;}
   const result=applyConstruction(world,{type:'unlock',zoneId:zone.id},game.money);
   if(!result.ok){status(result.reason);return;}
-  worlds.underground=result.world;game={...game,money:result.money};buildChoice=null;status(`${zone.name} を開放（−${result.cost}G）`);
+  worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',zone.name+'の区画開放');buildChoice=null;status(`${zone.name} を開放（−${result.cost}G）`);
  }else if(tool==='path'){
   const next=chooseCorridor(corridorChoice,tile);corridorChoice=next.state;
   pathStart=corridorChoice.start;
@@ -104,7 +107,7 @@ function buildAt(tile){
   if(!next.commit){status(`通路 ${plan.newTiles.length}マス・${plan.cost}G。終点 (${corridorChoice.end.x}, ${corridorChoice.end.y}) を再タップで施工。別地点なら終点変更。`);updatePlacement();return;}
   const result=applyCorridor(world,plan,game.money);
   if(!result.ok){status(result.reason);return;}
-  worlds.underground=result.world;game={...game,money:result.money};corridorChoice=null;pathStart=null;status(`通路 ${plan.newTiles.length}マスを敷設（−${result.cost}G）。次の始点を選択。`);
+  worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設','通路の一括施工');corridorChoice=null;pathStart=null;status(`通路 ${plan.newTiles.length}マスを敷設（−${result.cost}G）。次の始点を選択。`);
  }else if(['home','shop','lab'].includes(tool)){
   const dimensions=tool==='home'?[3,2]:tool==='shop'?[2,3]:[2,2];
   const next=chooseFootprint(buildChoice,tool,tile,dimensions);buildChoice=next.candidate;
@@ -113,7 +116,7 @@ function buildAt(tile){
   if(!v.ok){status('配置不可：'+v.reason);updatePlacement();return;}
   const result=applyConstruction(world,{type:'build',kind:tool,x:buildChoice.x,y:buildChoice.y},game.money);
   if(!result.ok){status(result.reason);return;}
-  worlds.underground=result.world;game={...game,money:result.money};buildChoice=null;status(`${tool==='home'?'住居':tool==='lab'?'研究室':'配給所'} ${v.w}×${v.h} を建設（−${result.cost}G）`);
+  worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',tool+'の建築');buildChoice=null;status(`${tool==='home'?'住居':tool==='lab'?'研究室':'配給所'} ${v.w}×${v.h} を建設（−${result.cost}G）`);
  }
  refreshConnectivity();hoverTile=null;updatePlacement();updateSelection();updateEconomy();
 }
@@ -183,8 +186,8 @@ function updateResalePanel(note=''){
  el('resaleStatus').textContent=`評価 ★${resale.rating.toFixed(1)}（${resale.reviewCount}件）／ 在庫 ${resale.inventory.map(i=>GOODS.find(g=>g.id===i.id).name).join('・')||'なし'}。${note}`;
  el('resaleSell').disabled=resale.inventory.length===0;
 }
-el('resaleBuy').addEventListener('click',()=>{const r=buyItem(resale,game.money,el('resaleProduct').value);if(r.ok){resale=r.resale;game={...game,money:r.money}}updateEconomy();updateResalePanel(r.ok?'仕入れました。':r.reason)});
-el('resaleSell').addEventListener('click',()=>{const r=sellItem(resale,game.money,0,el('packingGrade').value,game.day);if(r.ok){resale=r.resale;game={...game,money:r.money}}updateEconomy();updateResalePanel(r.ok?`売値${r.price}G、手数料${r.fee}G、梱包${r.packingCost}G、今回の損益${r.profit>=0?'+':''}${r.profit}G、評価★${r.stars}。`:r.reason)});
+el('resaleBuy').addEventListener('click',()=>{const before=game.money,r=buyItem(resale,before,el('resaleProduct').value);if(r.ok){resale=r.resale;game={...game,money:r.money};moneyChange(r.money-before,'フリマ仕入れ','商品の仕入れ')}updateEconomy();updateResalePanel(r.ok?'仕入れました。':r.reason)});
+el('resaleSell').addEventListener('click',()=>{const before=game.money,r=sellItem(resale,before,0,el('packingGrade').value,game.day);if(r.ok){resale=r.resale;game={...game,money:r.money};moneyChange(r.price,'フリマ売上','商品販売');moneyChange(r.money-before-r.price,'梱包・手数料','販売手数料と梱包資材')}updateEconomy();updateResalePanel(r.ok?`売値${r.price}G、手数料${r.fee}G、梱包${r.packingCost}G、今回の損益${r.profit>=0?'+':''}${r.profit}G、評価★${r.stars}。`:r.reason)});
 function updateRentalPanel(){
  const t=state.selected.surface,property=state.layer==='surface'?selectProperty(RENTALS,t.x,t.y):null;
  el('rentSelected').disabled=!property||rented.includes(property.id)||owned.includes(property.id)||game.money<property.deposit;
@@ -194,12 +197,12 @@ function updateRentalPanel(){
 el('rentSelected').addEventListener('click',()=>{
  const t=state.selected.surface,p=selectProperty(RENTALS,t.x,t.y);if(!p)return;
  const r=rentProperty(rented,game.money,p.id);if(!r.ok){el('rentalInfo').textContent=r.reason;return;}
- rented=r.rented;game={...game,money:r.money};updateEconomy();saveNow();
+ rented=r.rented;game={...game,money:r.money};moneyChange(-r.deposit,'物件契約',p.name+'の契約');updateEconomy();saveNow();
 });
 el('buySelected').addEventListener('click',()=>{
  const t=state.selected.surface,p=selectProperty(RENTALS,t.x,t.y);if(!p)return;
  const r=buyProperty(owned,rented,game.money,p.id);if(!r.ok){el('rentalInfo').textContent=r.reason;return;}
- owned=r.owned;rented=r.rented;game={...game,money:r.money};updateEconomy();saveNow();
+ const before=game.money;owned=r.owned;rented=r.rented;game={...game,money:r.money};moneyChange(r.money-before,'不動産購入',p.name+'の購入');updateEconomy();saveNow();
 });
 function refreshResidentRows(){
  const host=el('residentJobs');
@@ -235,6 +238,7 @@ function updateEconomy(){
   el('progressValue').textContent=`${clock}/120 秒`;
   const message=game.lastReport?`前日：+${game.lastReport.income}G / 調達 +${game.lastReport.harvest} / 配給不足 ${colony.report?.shortage??0}体 / 地上賃料 -${lastRentDue}G`:'仕事を選び、夜になると成果が反映されます。';
   el('reportValue').textContent=message;
+  if(el('statsDialog').open)refreshStatDetail();
   refreshResidentRows();
 }
 
@@ -263,21 +267,21 @@ function updateColonyPanel(note=''){
 }
 for(const button of document.querySelectorAll('[data-supply]'))button.addEventListener('click',()=>{
  const r=buySupply(colony,game.money,button.dataset.supply);
- if(r.ok){colony=r.colony;game={...game,money:r.money,food:colony.inventory.food};}
+ if(r.ok){colony=r.colony;game={...game,money:r.money,food:colony.inventory.food};moneyChange(-r.cost,'生活物資仕入れ',SUPPLIES[button.dataset.supply].name+' '+r.quantity+'個');}
  updateEconomy();updateColonyPanel(r.ok?`${SUPPLIES[button.dataset.supply].name}を${r.quantity}個仕入れ（−${r.cost}G）`:r.reason);
 });
 el('researchStart').addEventListener('click',()=>{
  const hasLab=worlds.underground.buildings.some(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]);
  const r=beginResearch(colony,game.money,hasLab);
- if(r.ok){colony=r.colony;game={...game,money:r.money};}
+ if(r.ok){colony=r.colony;game={...game,money:r.money};moneyChange(game.money-(game.money+r.cost),'研究','衝動抑制研究開始');}
  updateEconomy();updateColonyPanel(r.ok?'衝動抑制研究を開始しました。住民の仕事を「地下研究」に変更してください。':r.reason);
 });
 
 // Save/load and scene presentation are intentionally outside the headless simulation.
-function snapshot(){return serializeSession({game,colony,social,world:worlds.underground,resale,rented,owned,endingUnlocked});}
+function snapshot(){return serializeSession({game,colony,social,world:worlds.underground,resale,rented,owned,endingUnlocked,ledger});}
 function saveStatus(message){el('saveStatus').textContent=message;}
 async function saveNow(){if(savePending)return;savePending=true;try{await saveSnapshot(snapshot());saveStatus(`保存済み：第${game.day}日`);}catch(e){saveStatus(`保存できません：${e.message}`);}finally{savePending=false;}}
-function restoreData(data){const d=validateSession(data);game=d.game;colony=d.colony;social=d.social;worlds.underground=hydrateWorld(d.world);resale=d.resale;rented=d.rented;owned=d.owned??[];endingUnlocked=!!d.endingUnlocked;economyDay=game.day;lastRentDue=0;simAccumulator=0;lastTime=null;eventQueue=[];activeEvent=null;el('eventDialog').close?.();refreshConnectivity();updateEconomy();updateResalePanel();layerButton();updateEndingPanel();}
+function restoreData(data){const d=validateSession(data);game=d.game;colony=d.colony;social=d.social;worlds.underground=hydrateWorld(d.world);resale=d.resale;rented=d.rented;owned=d.owned??[];endingUnlocked=!!d.endingUnlocked;ledger=d.ledger?validateLedger(d.ledger):createLedger(game.money,game.day);economyDay=game.day;lastRentDue=0;simAccumulator=0;lastTime=null;eventQueue=[];activeEvent=null;el('eventDialog').close?.();refreshConnectivity();updateEconomy();updateResalePanel();layerButton();updateEndingPanel();}
 el('saveButton').addEventListener('click',saveNow);
 el('exportButton').addEventListener('click',()=>{try{const data=snapshot();const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`zombie-colony-day${game.day}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);saveStatus('JSONバックアップを出力しました');}catch(e){saveStatus(e.message);}});
 el('importButton').addEventListener('click',()=>el('importFile').click());
@@ -296,10 +300,10 @@ el('adaptResearchButton').addEventListener('click',()=>{
  if(!colony.completedResearch.includes('impulse')||colony.completedResearch.includes('adaptation'))return;
  const hasLab=worlds.underground.buildings.some(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]);
  if(!hasLab||game.money<180||colony.inventory.samples<3){saveStatus('社会適応には接続済み研究室、180G、資材3個が必要です');return;}
- game={...game,money:game.money-180};colony={...colony,completedResearch:[...colony.completedResearch,'adaptation'],inventory:{...colony.inventory,samples:colony.inventory.samples-3}};
+ game={...game,money:game.money-180};moneyChange(-180,'研究','社会適応研究');colony={...colony,completedResearch:[...colony.completedResearch,'adaptation'],inventory:{...colony.inventory,samples:colony.inventory.samples-3}};
  updateEconomy();updateEndingPanel();queueScenes([{id:'adapt-'+game.day,kind:'research',day:game.day,message:'社会適応研究が完成。人間化研究へ進めます。',reason:'衝動抑制完了後、研究資金と資材を投資'}]);saveNow();
 });
-el('endResearchButton').addEventListener('click',()=>{const hasLab=worlds.underground.buildings.some(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]);if(!colony.completedResearch.includes('adaptation')||!hasLab){saveStatus('先に社会適応研究を完了してください');return;}if(game.money<500||colony.inventory.samples<5){saveStatus('人間化研究には500Gと資材5個が必要です');return;}game={...game,money:game.money-500};colony={...colony,inventory:{...colony.inventory,samples:colony.inventory.samples-5}};endingUnlocked=true;updateEconomy();updateEndingPanel();queueScenes([{id:'humanity-tech',kind:'research',day:game.day,message:'人間化技術が完成した。これからの暮らし方を選べる。',reason:'衝動抑制の完成と追加の研究投資'}]);saveNow();});
+el('endResearchButton').addEventListener('click',()=>{const hasLab=worlds.underground.buildings.some(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]);if(!colony.completedResearch.includes('adaptation')||!hasLab){saveStatus('先に社会適応研究を完了してください');return;}if(game.money<500||colony.inventory.samples<5){saveStatus('人間化研究には500Gと資材5個が必要です');return;}game={...game,money:game.money-500};moneyChange(-500,'研究','人間化の最終研究');colony={...colony,inventory:{...colony.inventory,samples:colony.inventory.samples-5}};endingUnlocked=true;updateEconomy();updateEndingPanel();queueScenes([{id:'humanity-tech',kind:'research',day:game.day,message:'人間化技術が完成した。これからの暮らし方を選べる。',reason:'衝動抑制の完成と追加の研究投資'}]);saveNow();});
 for(const b of document.querySelectorAll('[data-ending]'))b.addEventListener('click',()=>{const name={'human':'人間復帰','colony':'地下楽園','coexist':'共存'}[b.dataset.ending];queueScenes([{id:'final-'+b.dataset.ending,kind:'ending',day:game.day,message:`${name}エンド：住民たちは自分たちの未来を選んだ。引き続き自由に街を運営できます。`,reason:'人間化研究を完了し、進路を選択した'}]);el('endingResult').textContent=`到達：${name}エンド（継続プレイ可能）`;saveNow();});
 el('pauseButton').addEventListener('click',()=>{paused=!paused;el('pauseButton').textContent=paused?'▶ 再開':'Ⅱ 一時停止';});
 el('speedButton').addEventListener('click',()=>{speed=speed===1?2:1;el('speedButton').textContent=`${speed}× 速度`;});
@@ -307,8 +311,9 @@ updateEconomy();
 function render(t){
   const elapsed=lastTime===null?0:Math.min(.25,(t-lastTime)/1000);lastTime=t;
   if(!paused&&!activeEvent){simAccumulator+=elapsed*speed;let updated=false;
-    while(simAccumulator>=1){game=stepGame(game);simAccumulator-=1;updated=true;
+    while(simAccumulator>=1){const beforeTickMoney=game.money;game=stepGame(game);simAccumulator-=1;updated=true;
       if(game.day!==economyDay){
+        const completedDay=game.day-1;moneyChange(game.money-beforeTickMoney,'アルバイト','外部勤務の報酬',completedDay);const beforeEventsMoney=game.money;
         colony={...colony,inventory:{...colony.inventory,food:colony.inventory.food+game.lastReport.harvest}};
         const labActive=worlds.underground.buildings.some(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]);
         const housing=worlds.underground.buildings.filter(b=>b.kind==='home'&&worlds.underground.connectivity?.[b.id]).length;
@@ -320,7 +325,7 @@ function render(t){
         if(relation.conversion){colony={...colony,conversionCount:colony.conversionCount+1,nextResidentId:relation.conversion.id+1,inventory:{...colony.inventory,food:colony.inventory.food-2},report:{...colony.report,newFollowerName:relation.conversion.name}};game={...game,events:[...game.events,`${relation.conversion.name}が${relation.conversion.by}の眷属になった`].slice(-12)};}
         game={...game,food:colony.inventory.food};
         const todaysScenes=eventsForDay(0,social,colony,game).filter(e=>(e.kind==='incident'||e.kind==='research'||!prevHistoryIds.has(e.id))&&(e.kind!=='research'||!hadResearch));queueScenes(todaysScenes);updateEndingPanel();
-        const bill=propertyBill(rented,owned,game.money);game={...game,money:bill.money};economyDay=game.day;lastRentDue=bill.due;updateResalePanel();updateColonyPanel();saveNow();}
+        moneyChange(game.money-beforeEventsMoney,'事件・補償','対人事件・住民イベント',completedDay);const bill=propertyBill(rented,owned,game.money);game={...game,money:bill.money};moneyChange(-bill.due,'賃料','地上物件の家賃',completedDay);economyDay=game.day;lastRentDue=bill.due;updateResalePanel();updateColonyPanel();saveNow();}
     }
     if(updated)updateEconomy();
   }
@@ -335,32 +340,70 @@ layerButton();updateResalePanel();updateRentalPanel();updateColonyPanel();update
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 raf=requestAnimationFrame(render);
 
-// Compact mobile navigation: keep the simulation scene visible while switching sheets.
+// Map-centric sheets: the panel stays within the viewport instead of pushing the map down.
 let currentPanel='map';
+const sheet=document.createElement('div');sheet.id='mapSheet';sheet.className='map-sheet';sheet.hidden=true;
+const sheetHeader=document.createElement('div');sheetHeader.className='sheet-header';sheetHeader.innerHTML='<strong id="sheetTitle">メニュー</strong><button type="button" id="sheetClose" aria-label="パネルを閉じる">×</button>';
+const sheetBody=document.createElement('div');sheetBody.className='sheet-body';sheet.append(sheetHeader,sheetBody);viewport.append(sheet);
+const titles={jobs:'仕事と住民',build:'地下建設',supply:'配給・仕入れ',research:'研究ツリー',market:'フリマ経営',social:'人間関係',property:'地上物件',settings:'設定・セーブ'};
+for(const section of [...document.querySelectorAll('.game-panel > [data-screen]')])sheetBody.append(section);
 function showPanel(id){
- currentPanel=id;
- for(const section of document.querySelectorAll('[data-screen]'))section.hidden=id==='map'||section.dataset.screen!==id;
- const selected=el('selectionPanel');if(selected)selected.hidden=id!=='map'&&id!=='build'&&id!=='property';
+ if(id===currentPanel&&id!=='map')id='map';
+ currentPanel=id;sheet.hidden=id==='map';sheet.dataset.panel=id;sheet.querySelector('#sheetTitle').textContent=titles[id]??'メニュー';
+ for(const section of sheetBody.querySelectorAll('[data-screen]'))section.hidden=id==='map'||section.dataset.screen!==id;
+ sheetBody.scrollTop=0;
+ el('selectionPanel').hidden=id!=='map';
  for(const b of document.querySelectorAll('[data-nav]'))b.classList.toggle('active',b.dataset.nav===id||(b.dataset.nav==='more'&&['market','social','property','settings'].includes(id)));
  if(id==='property'&&state.layer!=='surface')switchLayer('surface');
  if(id==='build'&&state.layer!=='underground')switchLayer('underground');
  if(id==='map'&&tool!=='inspect')setTool('inspect');
 }
+el('sheetClose').addEventListener('click',()=>showPanel('map'));
 for(const b of document.querySelectorAll('[data-nav]'))b.addEventListener('click',()=>{
  if(b.dataset.nav==='more'){el('moreDialog').showModal();return;}showPanel(b.dataset.nav);
 });
 for(const b of document.querySelectorAll('[data-more]'))b.addEventListener('click',()=>{el('moreDialog').close();showPanel(b.dataset.more);});
 el('moreClose').addEventListener('click',()=>el('moreDialog').close());
-const statDescriptions={
- populationValue:()=>`人口 ${game.residents.length}体。住居の定員を超えると眷属化できません。`,
- moneyValue:()=>`共同金庫 ${game.money}G。人間社会で稼ぎ、仕入れ・建設・研究・家賃に使います。`,
- foodValue:()=>`共同食料 ${colony.inventory.food}個。毎朝、住民1体につき1個を配給します。`,
- moodValue:()=>`街の満足度 ${el('moodValue').textContent}。疲労と危険衝動によって変動します。`,
- alertValue:()=>`人間側警戒度 ${game.alert}/100。対人事件や夜間の活動で上昇します。`
-};
-for(const [id,getDescription] of Object.entries(statDescriptions)){
- const button=el(id).closest('.metrics > div');button.tabIndex=0;button.setAttribute('role','button');button.setAttribute('aria-label',id+'の詳細を表示');
- const open=()=>{el('statsTitle').textContent=button.querySelector('span').textContent;el('statsDetail').textContent=getDescription();el('statsDialog').showModal();};
+const statTitles={populationValue:'住民',moneyValue:'資金',foodValue:'食料',moodValue:'満足度',alertValue:'警戒度'};
+let selectedStat='moneyValue';
+function refreshStatDetail(){
+ const count=game.residents.length,capacity=5+Math.max(0,worlds.underground.buildings.filter(b=>b.kind==='home'&&worlds.underground.connectivity?.[b.id]).length-1)*2;
+ const mean=key=>count?Math.round(game.residents.reduce((a,r)=>a+(r[key]??0),0)/count):0;
+ const details={
+ populationValue:`居住：${count} / ${capacity}体　空き：${Math.max(0,capacity-count)}体\n新しい眷属：${colony.conversionCount??0}体 / 喪失：${colony.lossCount??0}体\n住居の空きと配給余力が眷属化の条件です。`,
+ foodValue:`現在庫：${colony.inventory.food}個　1日必要：約${count}個\n配給可能日数：約${count?Math.floor(colony.inventory.food/count):0}日\n前日配給不足：${colony.report?.shortage??0}体\n生活用品：${colony.inventory.care} / 嗜好品：${colony.inventory.luxury} / 研究資材：${colony.inventory.samples}`,
+ moodValue:`街の満足度：${el('moodValue').textContent}/100\n平均疲労：${mean('fatigue')} / 平均危険衝動：${mean('impulse')}\nストライキ中：${game.residents.filter(r=>r.strikeDays>0).length}体\n配給・休息・交流が満足度に影響します。`,
+ alertValue:`現在の警戒度：${game.alert}/100\n状態：${game.alert>=80?'危険':game.alert>=60?'巡回':game.alert>=30?'注意':'平穏'}\n夜間勤務・通報・対人事件で上昇し、自粛によって徐々に下がります。`
+ };
+ el('statsTitle').textContent=statTitles[selectedStat];
+ const isMoney=selectedStat==='moneyValue';el('financeView').hidden=!isMoney;el('statsDetail').hidden=isMoney;
+ if(!isMoney){el('statsDetail').textContent=details[selectedStat];return;}
+ const prev=game.day-1,latest=daySummary(ledger,prev),today=daySummary(ledger,game.day);
+ el('financeHeadline').textContent=`現在 ${game.money}G / 昨日（第${prev}日） ${prev<ledger.startDay?'履歴なし':`${latest.net>=0?'+':''}${latest.net}G`}`;
+ const historyAvailable=prev>=ledger.startDay;
+ el('financeYesterday').textContent=historyAvailable?`収入 +${latest.income}G · 支出 −${latest.expense}G · 期末 ${latest.closing}G`:'更新前の日別取引履歴はありません。';
+ el('financeToday').textContent=`本日：収入 +${today.income}G / 支出 −${today.expense}G`;
+ const list=el('financeTransactions');list.replaceChildren();
+ for(const t of [...(historyAvailable?latest.transactions:[])].reverse()){
+  const li=document.createElement('li');li.textContent=`${t.category}：${t.amount>0?'+':''}${t.amount}G — ${t.note}`;list.append(li);
+ }
+ if(!list.childElementCount){const li=document.createElement('li');li.textContent='前日の記録はまだありません';list.append(li);}
+ drawFinanceChart(balanceSeries(ledger,game.day,7));
+}
+function drawFinanceChart(series){
+ const canvas=el('financeChart'),ctx=canvas.getContext('2d'),dpr=Math.min(2,window.devicePixelRatio||1),w=310,h=135;
+ canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ const max=Math.max(1,...series.map(x=>x.closing)),min=Math.min(0,...series.map(x=>x.closing));
+ ctx.strokeStyle='#557481';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(20,12);ctx.lineTo(20,110);ctx.lineTo(303,110);ctx.stroke();
+ ctx.textAlign='center';ctx.font='11px system-ui';series.forEach((s,i)=>{
+  const x=30+(i+.5)*260/Math.max(1,series.length),y=107-(s.closing-min)/(max-min)*88;
+  ctx.fillStyle='#83c4ab';ctx.fillRect(x-10,y,20,Math.max(2,108-y));ctx.fillStyle='#cadce0';ctx.fillText(String(s.day)+'日',x,125);
+ });
+ ctx.fillStyle='#e3ebe5';ctx.textAlign='left';ctx.fillText(`${max}G`,23,12);
+}
+for(const id of Object.keys(statTitles)){
+ const button=el(id).closest('.metrics > div');button.tabIndex=0;button.setAttribute('role','button');button.setAttribute('aria-label',statTitles[id]+'の詳細を表示');
+ const open=()=>{selectedStat=id;refreshStatDetail();el('statsDialog').showModal();};
  button.addEventListener('click',open);button.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});
 }
 el('statsClose').addEventListener('click',()=>el('statsDialog').close());
