@@ -70,11 +70,8 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   bg.addColorStop(0,world.id==='underground'?'#132a36':'#263a48');bg.addColorStop(1,world.id==='underground'?'#091b28':'#1a3036');
   ctx.fillStyle=bg;ctx.fillRect(0,0,width,height);
   ctx.save(); ctx.translate(view.cx,view.cy); ctx.scale(view.zoom,view.zoom);ctx.translate(view.panX,view.panY);
-  const bAt={};
-  for (const b of world.buildings) {
-    const last=(b.x+b.w-1)+(b.y+b.h-1);
-    (bAt[last]??=[]).push(b);
-  }
+  // Render in explicit depth passes. Painting buildings inside the tile loop
+  // caused later floor diamonds to overwrite the lower walls of buildings.
   for(let diagonal=0;diagonal<=2*(MAP_SIZE-1);diagonal++){
     for(let x=0;x<MAP_SIZE;x++){
       const y=diagonal-x;if(y<0||y>=MAP_SIZE)continue;
@@ -85,8 +82,11 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       if(closed){ctx.strokeStyle='#40535c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(wx-10,wy-5);ctx.lineTo(wx+10,wy+5);ctx.moveTo(wx+10,wy-5);ctx.lineTo(wx-10,wy+5);ctx.stroke();}
       if(selected?.x===x&&selected?.y===y){diamond(ctx,wx,wy,'rgba(242,228,135,.18)',p.selected);}
     }
-    for(const b of bAt[diagonal]??[])buildingShape(ctx,b,world.connectivity?.[b.id]??true);
   }
+  // Depth sort by the front-most footprint corner (isometric painter's order).
+  const orderedBuildings=[...world.buildings].sort((a,b)=>
+    (a.x+a.y+a.w+a.h)-(b.x+b.y+b.w+b.h) || a.x-b.x);
+  for(const b of orderedBuildings)buildingShape(ctx,b,world.connectivity?.[b.id]??true);
   if(placement && world.id==='underground'){
     const tiles=placement.tiles??[];
     for(const tile of tiles){const pt=tileToWorld(tile.x,tile.y);diamond(ctx,pt.x,pt.y,placement.valid?'rgba(129,237,159,.42)':'rgba(248,100,100,.38)',placement.valid?'#b7ffc6':'#ffc1bf');}
