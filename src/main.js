@@ -17,7 +17,7 @@ import { serializeSession, validateSession, hydrateWorld, saveSnapshot, loadSnap
 import { sceneDefinition, paintEvent, eventsForDay } from './event-scenes.js';
 import { createLedger, addTransaction, daySummary, balanceSeries, validateLedger } from './finance.js';
 import { demolitionTarget, applyDemolition } from './demolition.js';
-import { initialSurfaceEconomy, advanceSurfaceEconomy, tradeProperty, PROPERTY_ROLES } from './surface-economy.js';
+import { initialSurfaceEconomy, advanceSurfaceEconomy, tradeProperty, PROPERTY_ROLES, propertyLocation } from './surface-economy.js';
 import { formattedGameClock, ticksUntilNextDay, nextSpeed } from './game-clock.js';
 
 const canvas=document.getElementById('scene');const ctx=canvas.getContext('2d',{alpha:false});
@@ -258,7 +258,7 @@ function updateResalePanel(note=''){
   listings.append(box);
  }
  const history=el('marketHistory');history.replaceChildren();if(!m.history.length)history.textContent='販売履歴はまだありません。';
- for(const entry of m.history.slice(0,12)){const line=document.createElement('div');line.className='market-history-row';line.textContent=`第${entry.day}日 ${entry.name}　売上${entry.price}G ／ 損益${formatProfit(entry.profit)} ／ ★${entry.review}`;history.append(line);}
+ for(const entry of m.history.slice(0,12)){const line=document.createElement('div');line.className='market-history-row';line.textContent=`第${entry.day}日 ${entry.name}　売上${entry.price}G ／ 損益${formatProfit(entry.profit)} ／ ★${entry.review}${entry.status==='returned'?' ／ 返品・返金済み':''}`;history.append(line);}
  if(note)marketMessage(note);
 }
 el('marketResearch').addEventListener('click',()=>{marketDesk=inspectMarket(marketDesk,game.day);updateResalePanel('本日の市場を調査しました。需要・競合数と相場を確認できます。');});
@@ -288,9 +288,9 @@ function openPropertyDialog(tile){
 }
 function renderPropertyDialog(){
  const dialog=el('propertyDialog'),p=RENTALS.find(q=>q.id===dialog.dataset.id);if(!p)return;
- const mine=owned.includes(p.id),rental=rented.includes(p.id),sublet=surfaceEconomy.leasedOut.includes(p.id),role=PROPERTY_ROLES[p.id];
+ const mine=owned.includes(p.id),rental=rented.includes(p.id),sublet=surfaceEconomy.leasedOut.includes(p.id),role=PROPERTY_ROLES[p.id],location=propertyLocation(p.id);
  el('propertyTitle').textContent=p.name;
- el('propertyDetails').textContent=`${role?.name??'地上物件'}：${role?.detail??''}\n面積 ${p.w}×${p.h}／契約金 ${p.deposit}G／日額家賃 ${p.rent}G／購入 ${p.purchase}G\n状態：${mine?(sublet?'所有・人間に貸出中':'所有・自営中'):rental?'賃借・自営中':'未契約'}。\n街の人間 ${surfaceEconomy.humans}人／信頼 ${surfaceEconomy.trust}/100／来客 ${surfaceEconomy.last?.visitors??'—'}人`;
+ el('propertyDetails').textContent=`${role?.name??'地上物件'}：${role?.detail??''}\n面積 ${p.w}×${p.h}／契約金 ${p.deposit}G／日額家賃 ${p.rent}G／購入 ${p.purchase}G\n状態：${mine?(sublet?'所有・人間に貸出中':'所有・自営中'):rental?'賃借・自営中':'未契約'}。\n立地：${location?.grade??'不明'}／道路接面 ${location?.frontage??0}／集客倍率 ${location?.accessibility??1}倍\n街の人間 ${surfaceEconomy.humans}人／信頼 ${surfaceEconomy.trust}/100／来客 ${surfaceEconomy.last?.visitors??'—'}人`;
  const actions=el('propertyDialogActions');actions.replaceChildren();
  const button=(label,handler,disabled=false)=>{const b=document.createElement('button');b.textContent=label;b.disabled=disabled;b.addEventListener('click',handler);actions.append(b);};
  if(!mine&&!rental){button(`借りる ${p.deposit}G`,()=>{el('rentSelected').click();renderPropertyDialog();},game.money<p.deposit);button(`買う ${p.purchase}G`,()=>{el('buySelected').click();renderPropertyDialog();},game.money<p.purchase);}
@@ -445,7 +445,19 @@ const beforeTickMoney=game.money;game=stepGame(game);
         const todaysScenes=eventsForDay(0,social,colony,game).filter(e=>(e.kind==='incident'||e.kind==='research'||!prevHistoryIds.has(e.id))&&(e.kind!=='research'||!hadResearch));queueScenes(todaysScenes);updateEndingPanel();
         moneyChange(game.money-beforeEventsMoney,'事件・補償','対人事件・住民イベント',completedDay);const surfaceResult=advanceSurfaceEconomy(surfaceEconomy,game,owned,rented,completedDay);surfaceEconomy=surfaceResult.surface;
         game={...game,money:game.money+surfaceResult.net,alert:Math.max(0,game.alert-(surfaceResult.trust>=70?1:0))};moneyChange(surfaceResult.income,'地上事業売上',`来客${surfaceResult.visitors}人・人間${surfaceResult.humans}人`,completedDay);moneyChange(-surfaceResult.expenses,'地上施設維持費','運営・人件費',completedDay);
-        const bill=propertyBill(rented,owned,game.money);const paid=Math.min(game.money,bill.due);game={...game,money:game.money-paid,alert:Math.min(100,game.alert+(paid<bill.due?3:0))};moneyChange(-paid,'賃料','地上物件の家賃'+(paid<bill.due?'・未払い発生':'') ,completedDay);economyDay=game.day;lastRentDue=paid;const marketDay=advanceMarket(marketDesk,game.day,surfaceEconomy.trust);marketDesk=marketDay.market;game={...game,money:game.money+marketDay.money};for(const sale of marketDay.sales){moneyChange(sale.price,'フリマ売上',sale.name+'・購入成立',completedDay);moneyChange(-sale.fee,'フリマ販売手数料',sale.name,completedDay);}if(marketDay.offers.length)marketMessage(`値下げ交渉が${marketDay.offers.length}件届いています。フリマで確認してください。`);updateResalePanel();updateColonyPanel();saveNow();}
+        const bill=propertyBill(rented,owned,game.money);const paid=Math.min(game.money,bill.due);game={...game,money:game.money-paid,alert:Math.min(100,game.alert+(paid<bill.due?3:0))};moneyChange(-paid,'賃料','地上物件の家賃'+(paid<bill.due?'・未払い発生':'') ,completedDay);economyDay=game.day;lastRentDue=paid;const refundDebtPayment=Math.min(game.money,marketDesk.refundDebt??0);
+        if(refundDebtPayment>0){game={...game,money:game.money-refundDebtPayment};marketDesk={...marketDesk,refundDebt:(marketDesk.refundDebt??0)-refundDebtPayment};moneyChange(-refundDebtPayment,'フリマ返品','前回の未払返金',completedDay);}
+        const marketDay=advanceMarket(marketDesk,game.day,surfaceEconomy.trust);
+        marketDesk=marketDay.market;
+        const saleProceeds=marketDay.sales.reduce((sum,sale)=>sum+sale.price-sale.fee,0);
+        let availableForRefund=game.money+saleProceeds;
+        for(const refund of marketDay.refunds??[]){
+          const paid=Math.min(availableForRefund,refund.amount);availableForRefund-=paid;
+          moneyChange(-paid,'フリマ返品',refund.name+'・返品返金',completedDay);
+          if(paid<refund.amount){marketDesk.refundDebt=(marketDesk.refundDebt??0)+refund.amount-paid;}
+        }
+        game={...game,money:availableForRefund};
+        if((marketDay.refunds??[]).length)marketMessage(`返品が${marketDay.refunds.length}件発生しました。返金不足分は負債として記録されます。`);for(const sale of marketDay.sales){moneyChange(sale.price,'フリマ売上',sale.name+'・購入成立',completedDay);moneyChange(-sale.fee,'フリマ販売手数料',sale.name,completedDay);}if(marketDay.offers.length)marketMessage(`値下げ交渉が${marketDay.offers.length}件届いています。フリマで確認してください。`);updateResalePanel();updateColonyPanel();saveNow();}
 }
 
 function render(t){
