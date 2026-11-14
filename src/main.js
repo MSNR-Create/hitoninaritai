@@ -369,6 +369,13 @@ raf=requestAnimationFrame(render);
 
 // Map-centric sheets: the panel stays within the viewport instead of pushing the map down.
 let currentPanel='map';
+// iOS Safari's visible area changes when its browser bars expand or retract.
+function updateScreenHeight(){ const h=window.visualViewport?.height||window.innerHeight; if(h>0)document.documentElement.style.setProperty('--game-screen-height',Math.round(h)+'px'); }
+updateScreenHeight();
+window.addEventListener('resize',updateScreenHeight,{passive:true});
+window.visualViewport?.addEventListener('resize',updateScreenHeight,{passive:true});
+// Keep tile details inside the map so the fixed screen has no extra vertical row.
+viewport.appendChild(el('selectionPanel'));
 const sheet=document.createElement('div');sheet.id='mapSheet';sheet.className='map-sheet';sheet.hidden=true;
 const sheetHeader=document.createElement('div');sheetHeader.className='sheet-header';sheetHeader.innerHTML='<strong id="sheetTitle">メニュー</strong><button type="button" id="sheetClose" aria-label="パネルを閉じる">×</button>';
 const sheetBody=document.createElement('div');sheetBody.className='sheet-body';sheet.append(sheetHeader,sheetBody);viewport.append(sheet);
