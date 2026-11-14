@@ -1,3 +1,4 @@
+import { validateLedger } from './finance.js';
 // Versioned single-snapshot persistence with previous-good rollback.
 export const SAVE_VERSION=1;
 const MAX_BYTES=2_000_000;
@@ -18,6 +19,7 @@ export function validateSession(input){
  if(!world.buildings.every(b=>isRecord(b)&&typeof b.id==='string'&&['home','shop','exit','lab'].includes(b.kind)&&[b.x,b.y,b.w,b.h].every(Number.isInteger)&&b.x>=0&&b.y>=0&&b.w>0&&b.h>0&&b.x+b.w<=16&&b.y+b.h<=16))throw Error('建物データが不正です');
  if(!game.residents.every(r=>isRecord(r)&&Number.isInteger(r.id)&&typeof r.name==='string'&&r.name.length<=60&&Number.isFinite(r.fatigue)&&r.fatigue>=0&&r.fatigue<=100&&Number.isFinite(r.impulse)&&r.impulse>=0&&r.impulse<=100))throw Error('住民データが不正です');
  if(!isRecord(resale)||!Array.isArray(resale.inventory)||resale.inventory.length>100||!Array.isArray(rented)||rented.length>10||!rented.every(id=>typeof id==='string')||!Array.isArray(owned)||owned.length>3||!owned.every(id=>['apartment','market','warehouse'].includes(id)) )throw Error('事業データが不正です');
+ if(input.ledger!==undefined)validateLedger(input.ledger);
  return input;
 }
 export function hydrateWorld(data){return {...data,closed:new Set(data.closed),paths:new Set(data.paths),accents:new Set(data.accents)};}
