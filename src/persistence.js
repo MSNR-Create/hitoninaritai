@@ -21,6 +21,7 @@ export function validateSession(input){
  if(!game.residents.every(r=>isRecord(r)&&Number.isInteger(r.id)&&typeof r.name==='string'&&r.name.length<=60&&Number.isFinite(r.fatigue)&&r.fatigue>=0&&r.fatigue<=100&&Number.isFinite(r.impulse)&&r.impulse>=0&&r.impulse<=100))throw Error('住民データが不正です');
  if(!isRecord(resale)||!Array.isArray(resale.inventory)||resale.inventory.length>100||!Array.isArray(rented)||rented.length>10||!rented.every(id=>typeof id==='string')||!Array.isArray(owned)||owned.length>6||!owned.every(id=>['apartment','market','warehouse','clinic','cafe','flats'].includes(id)) )throw Error('事業データが不正です');
  if(input.surfaceEconomy!==undefined){const e=input.surfaceEconomy;if(!isRecord(e)||!Number.isInteger(e.humans)||e.humans<0||e.humans>10000||!Number.isInteger(e.trust)||e.trust<0||e.trust>100||!Array.isArray(e.leasedOut)||e.leasedOut.length>6||!e.leasedOut.every(id=>typeof id==='string')||!Array.isArray(e.history)||e.history.length>30)throw Error('地上経営データが不正です');}
+ if(input.marketDesk!==undefined){const m=input.marketDesk;if(!isRecord(m)||!Array.isArray(m.inventory)||m.inventory.length>120||!Array.isArray(m.listings)||m.listings.length>120||!Array.isArray(m.history)||m.history.length>35||!Number.isFinite(m.rating)||m.rating<0||m.rating>5||!Number.isInteger(m.nextId)||m.nextId<1||!Number.isInteger(m.reviews)||m.reviews<0)throw Error('フリマの保存データが不正です');}
  if(input.ledger!==undefined)validateLedger(input.ledger);
  return input;
 }
