@@ -126,7 +126,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
     }
   }
   // Depth sort by the front-most footprint corner (isometric painter's order).
-  const orderedBuildings=[...world.buildings].sort((a,b)=>{
+  const orderedBuildings=[...world.buildings,...(world.cityBuildings??[])].sort((a,b)=>{
     const x=projectedFootprint(a,view.rotation??0),y=projectedFootprint(b,view.rotation??0);
     return (x.x+x.y+x.w+x.h)-(y.x+y.y+y.w+y.h)||x.x-y.x;
   });
