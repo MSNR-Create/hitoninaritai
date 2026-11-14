@@ -1,4 +1,4 @@
-import { clamp, hitTile, tileToWorld, worldToView, zoomAround } from './geometry.js';
+import { clamp, hitTile, tileToWorld, projectedTile, projectedFootprint, worldToView, zoomAround } from './geometry.js';
 import { makeWorlds, describeTile } from './world.js';
 import { drawScene } from './render.js';
 import { boundCamera, makePinch, applyPinch } from './camera.js';
@@ -23,7 +23,7 @@ import { formattedGameClock, ticksUntilNextDay, nextSpeed } from './game-clock.j
 const canvas=document.getElementById('scene');const ctx=canvas.getContext('2d',{alpha:false});
 const viewport=document.getElementById('viewport');const worlds=makeWorlds();
 worlds.underground.connectivity=connectedFacilities(worlds.underground);
-const state={ layer:'underground', selected:{ underground:{x:8,y:8}, surface:{x:7,y:8} }, view:{cx:0,cy:0,panX:0,panY:0,zoom:1}, pointers:new Map(),gesture:null,started:performance.now() };
+const state={ layer:'underground', selected:{ underground:{x:8,y:8}, surface:{x:7,y:8} }, view:{cx:0,cy:0,panX:0,panY:0,zoom:1,rotation:0}, pointers:new Map(),gesture:null,started:performance.now() };
 let bounds={width:0,height:0},dpr=1,raf=0;
 let colony=initialColony();
 let social=initialSocial();
@@ -45,8 +45,8 @@ function frameSize() {
 }
 function centerMap() {
   // The center of all tiles, not the top-left, aligns to the available viewport.
-  const p=tileToWorld(8,8);
-  state.view={ cx:bounds.width/2,cy:bounds.height*.46, panX:-p.x,panY:-p.y, zoom:Math.min(1.05,Math.max(.48,bounds.width/700)) };
+  const p=projectedTile(8,8,state.view.rotation??0);
+  state.view={ cx:bounds.width/2,cy:bounds.height*.46, panX:-p.x,panY:-p.y, zoom:Math.min(1.05,Math.max(.48,bounds.width/700)),rotation:state.view.rotation??0 };
   state.view=boundCamera(state.view,bounds.width,bounds.height);updateZoom();
 }
 function updateZoom(){el('zoomValue').textContent=`${Math.round(state.view.zoom*100)}%`;}
@@ -145,16 +145,19 @@ function buildCorridorDrag(start,end){
 }
 function visibleBuildingAt(point){
  const world=worlds[state.layer];
- const inside=(vertices)=>{let hit=false;for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
-  const a=vertices[i],b=vertices[j],crosses=(a.y>point.y)!==(b.y>point.y);
-  if(crosses&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
+ const inside=vertices=>{let hit=false;for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
+  const a=vertices[i],b=vertices[j];if((a.y>point.y)!==(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
  }return hit;};
- const list=[...world.buildings].sort((a,b)=>(b.x+b.y+b.w+b.h)-(a.x+a.y+a.w+a.h));
- for(const b of list){
-  const pts=[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]].map(([x,y])=>{const w=tileToWorld(x,y);return worldToView(w.x,w.y,state.view)});
-  const ht=(b.kind==='exit'?19:['shop','market','cafe'].includes(b.kind)?42:54)*state.view.zoom;
-  const top=pts.map(p=>({x:p.x,y:p.y-ht}));
-  if(inside(top)||inside([pts[3],pts[2],top[2],top[3]])||inside([pts[1],pts[2],top[2],top[1]]))return b;
+ const ordered=[...world.buildings].sort((a,b)=>{
+  const fa=projectedFootprint(a,state.view.rotation??0),fb=projectedFootprint(b,state.view.rotation??0);
+  return fb.x+fb.y+fb.w+fb.h-fa.x-fa.y-fa.w-fa.h;
+ });
+ for(const b of ordered){
+  const f=projectedFootprint(b,state.view.rotation??0);
+  const pts=[[f.x,f.y],[f.x+f.w,f.y],[f.x+f.w,f.y+f.h],[f.x,f.y+f.h]].map(([x,y])=>{const p=tileToWorld(x,y);return worldToView(p.x,p.y,state.view)});
+  if(inside(pts))return b;
+  const ht=(b.kind==='exit'?10:21)*state.view.zoom;
+  if(inside([pts[0],pts[1],{x:pts[1].x,y:pts[1].y-ht},{x:pts[0].x,y:pts[0].y-ht}])||inside([pts[0],pts[3],{x:pts[3].x,y:pts[3].y-ht},{x:pts[0].x,y:pts[0].y-ht}]))return b;
  }
  return null;
 }
@@ -211,6 +214,12 @@ canvas.addEventListener('wheel',evt=>{evt.preventDefault();if(tool!=='inspect'||
 for(const button of document.querySelectorAll('[data-layer]'))button.addEventListener('click',()=>switchLayer(button.dataset.layer));
 el('zoomIn').addEventListener('click',()=>{if(tool!=='inspect'||currentPanel==='build')return;state.view=boundCamera(zoomAround(state.view,state.view.zoom*1.2,bounds.width/2,bounds.height/2),bounds.width,bounds.height);updateZoom();});
 el('zoomOut').addEventListener('click',()=>{if(tool!=='inspect'||currentPanel==='build')return;state.view=boundCamera(zoomAround(state.view,state.view.zoom/1.2,bounds.width/2,bounds.height/2),bounds.width,bounds.height);updateZoom();});
+el('rotateView').addEventListener('click',()=>{
+ if(tool!=='inspect'){status('回転は建設・撤去モードを終了してから行えます。');return;}
+ state.view.rotation=((state.view.rotation??0)+1)%4;
+ centerMap();
+ el('rotateView').setAttribute('aria-label',`マップを90度回転（現在 ${state.view.rotation*90}度）`);
+});
 el('resetView').addEventListener('click',()=>{if(tool==='inspect'&&currentPanel!=='build')centerMap();});
 el('helpButton').addEventListener('click',()=>el('helpDialog').showModal());
 el('closeHelp').addEventListener('click',()=>el('helpDialog').close());
