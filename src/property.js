@@ -1,5 +1,5 @@
 import { RENTALS } from './rentals.js';
-export const PURCHASE_PRICES=Object.freeze({apartment:650,market:1250,warehouse:900});
+export const PURCHASE_PRICES=Object.freeze({apartment:650,market:1250,warehouse:900,clinic:1550,cafe:1050,flats:1400});
 export function buyProperty(owned,rented,money,id){
  const unit=RENTALS.find(p=>p.id===id),price=PURCHASE_PRICES[id];
  if(!unit||!Number.isFinite(price))return {ok:false,reason:'物件がありません'};
