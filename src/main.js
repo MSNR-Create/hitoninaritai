@@ -6,7 +6,8 @@ import { initialGame, stepGame, assignJob, JOBS, moodOf } from './simulation.js'
 import { residentVisual } from './agent.js';
 import { applyConstruction, canUnlock, zoneAt, connectedFacilities } from './construction.js';
 import { planCorridor, applyCorridor, buildingPreview } from './planning.js';
-import { GOODS, PACKING, initialResale, marketIndex, buyItem, sellItem } from './resale.js';
+import { initialResale } from './resale.js';
+import {CATALOG,BOXES,CONDITIONS,initialMarketDesk,inspectMarket,marketQuote,sourceItem,listItem,autoPrice,changePrice,cancelListing,resolveOffer,advanceMarket,marketSummary} from './market-business.js';
 import { RENTALS, rentProperty } from './rentals.js';
 import { PURCHASE_PRICES, buyProperty, propertyBill, selectProperty } from './property.js';
 import { chooseFootprint, chooseCorridor } from './placement-interaction.js';
@@ -30,6 +31,7 @@ let game=initialGame(), simAccumulator=0,lastTime=null,speed=1,paused=false;
 let eventQueue=[], activeEvent=null, eventFrame=null, savePending=false, endingUnlocked=false;
 let ledger=createLedger(300,1);
 let surfaceEconomy=initialSurfaceEconomy();
+let marketDesk=initialMarketDesk();
 function moneyChange(amount, category, note, day=game.day){if(amount!==0)ledger=addTransaction(ledger,{day,amount,category,note});}
 let tool='inspect',pathStart=null,hoverTile=null,placement=null,resale=initialResale(),rented=[],owned=[],corridorChoice=null,buildChoice=null,economyDay=game.day,lastRentDue=0,demolishChoice=null; 
 const el=id=>document.getElementById(id);
@@ -219,15 +221,40 @@ window.addEventListener('keydown',evt=>{
   }
 });
 new ResizeObserver(frameSize).observe(viewport);
+function marketMessage(text){el('resaleStatus').textContent=text;}
+function formatProfit(v){return `${v>=0?'+':''}${v}G`;}
 function updateResalePanel(note=''){
- const product=el('resaleProduct'),old=product.value;product.replaceChildren(...GOODS.map(g=>{const opt=document.createElement('option');opt.value=g.id;opt.textContent=`${g.name} 仕入${g.cost}G${resale.rating<g.required?' 🔒':''}`;opt.disabled=resale.rating<g.required;return opt}));
- if([...product.options].some(o=>o.value===old&&!o.disabled))product.value=old;
- el('marketTrend').textContent=`相場 ×${marketIndex(game.day).toFixed(2)}`;
- el('resaleStatus').textContent=`評価 ★${resale.rating.toFixed(1)}（${resale.reviewCount}件）／ 在庫 ${resale.inventory.map(i=>GOODS.find(g=>g.id===i.id).name).join('・')||'なし'}。${note}`;
- el('resaleSell').disabled=resale.inventory.length===0;
+ const m=marketDesk,summary=marketSummary(m),isResearched=m.researchDay===game.day;
+ el('marketTrend').textContent=`第${game.day}日・市場${isResearched?'調査済':'未調査'}`;
+ el('marketMetrics').textContent=`評価 ★${m.rating.toFixed(2)}（${m.reviews}件）｜出品 ${summary.pending}件｜在庫 ${summary.stock}点｜累積売買益 ${formatProfit(summary.profit)}`;
+ el('marketResearchNote').textContent=isResearched?`本日の市場を調査済み。商品ごとの需要・競合数と推奨相場を確認できます。`:'「今日の市場を調査」を押すと、需要・競合数・参考価格を確認できます。';
+ const category=el('marketCategory').value;
+ const catalog=el('marketCatalog');catalog.replaceChildren();
+ for(const item of CATALOG.filter(x=>category==='all'||x.category===category)){
+  const q=marketQuote(item.id,game.day,surfaceEconomy.trust),row=document.createElement('div');row.className='market-item';
+  const locked=m.rating<item.unlock;const estimate=autoPrice(item.id,'good',game.day,surfaceEconomy.trust);
+  const info=document.createElement('div');info.className='market-item-info';
+  info.textContent=`${item.name} · ${item.category} ／ 仕入目安 ${item.cost}G`;
+  const desc=document.createElement('small');desc.textContent=isResearched?`相場 ${q.estimated}G · ${q.popularity} · 競合 ${q.sellers}店 ／ 標準品の推奨売価 ${estimate}G`:'調査前：需要と相場は不明';info.append(desc);
+  const select=document.createElement('select');select.setAttribute('aria-label',item.name+'の商品状態');for(const [key,c] of Object.entries(CONDITIONS)){const option=document.createElement('option');option.value=key;option.textContent=c.name;select.append(option);}select.value='good';
+  const buy=document.createElement('button');buy.textContent=locked?`★${item.unlock}で解放`:'仕入れる';buy.disabled=locked;buy.addEventListener('click',()=>{const r=sourceItem(marketDesk,game.money,item.id,select.value,game.day);if(r.ok){marketDesk=r.market;game={...game,money:r.money};moneyChange(-r.price,'フリマ仕入れ',item.name+'・'+CONDITIONS[select.value].name);updateEconomy();saveNow();}updateResalePanel(r.ok?`${item.name}を${r.price}Gで仕入れました。`:r.reason);});
+  row.append(info,select,buy);catalog.append(row);
+ }
+ const inventory=el('marketInventory');inventory.replaceChildren();if(!m.inventory.length)inventory.textContent='仕入れ在庫はありません。';
+ for(const item of m.inventory){const p=CATALOG.find(x=>x.id===item.id),r=document.createElement('div');r.className='market-item';const info=document.createElement('span');info.textContent=`#${item.uid} ${p.name}（${CONDITIONS[item.condition].name}） 仕入${item.cost}G`;const button=document.createElement('button');button.textContent='梱包して出品';button.addEventListener('click',()=>{const auto=el('marketPricing').value==='auto',price=auto?autoPrice(item.id,item.condition,game.day,surfaceEconomy.trust):Number(el('marketPrice').value),result=listItem(marketDesk,game.money,item.uid,el('marketPacking').value,price,game.day,auto);if(result.ok){marketDesk=result.market;game={...game,money:result.money};moneyChange(-result.packingCost,'フリマ梱包',p.name+'の梱包');updateEconomy();saveNow();}updateResalePanel(result.ok?`#${item.uid}を${price}Gで出品。梱包費${result.packingCost}G。翌日から購入者が検討します。`:result.reason);});r.append(info,button);inventory.append(r);}
+ const listings=el('marketListings');listings.replaceChildren();if(!m.listings.length)listings.textContent='出品中の商品はありません。';
+ for(const l of m.listings){const p=CATALOG.find(x=>x.id===l.id),box=document.createElement('div');box.className='market-listing';const head=document.createElement('div');head.className='market-listing-head';const label=document.createElement('strong');label.textContent=`#${l.uid} ${p.name}　${l.price}G ${l.auto?'[自動価格]':''}`;const age=document.createElement('small');age.textContent=`出品${l.days}日目 · ${CONDITIONS[l.condition].name} · ${BOXES[l.box].name}梱包`;head.append(label,age);box.append(head);
+  if(l.offer){const alert=document.createElement('p');alert.textContent=`💬 購入希望者から ${l.offer}G の値下げ交渉！（元値 ${l.price}G）`;box.append(alert);for(const [text,accept] of [['承諾して販売',true],['断る',false]]){const b=document.createElement('button');b.textContent=text;b.addEventListener('click',()=>{const result=resolveOffer(marketDesk,l.uid,accept,game.day);if(result.ok){marketDesk=result.market;if(accept){game={...game,money:game.money+result.money};moneyChange(result.sale.price,'フリマ売上',p.name+'・交渉成立');moneyChange(-result.fee,'フリマ販売手数料',p.name);}updateEconomy();saveNow();}updateResalePanel(result.ok?(accept?`交渉成立！${result.sale.price}Gで売れ、評価★${result.sale.review}。`:'交渉を断りました。出品は継続します。'):result.reason);});box.append(b);}}
+  else {const input=document.createElement('input');input.type='number';input.min='1';input.max='99999';input.value=String(l.price);input.setAttribute('aria-label',p.name+'の販売価格');input.className='market-listing-price';box.append(input);const change=document.createElement('button');change.textContent='価格変更';change.addEventListener('click',()=>{const result=changePrice(marketDesk,l.uid,Number(input.value));if(result.ok){marketDesk=result.market;saveNow();}updateResalePanel(result.ok?'価格を変更しました。':result.reason);});box.append(change);const stop=document.createElement('button');stop.textContent='出品を取り下げる';stop.addEventListener('click',()=>{const result=cancelListing(marketDesk,l.uid);if(result.ok){marketDesk=result.market;saveNow();}updateResalePanel(result.ok?'商品を在庫に戻しました。':result.reason);});box.append(stop);}
+  listings.append(box);
+ }
+ const history=el('marketHistory');history.replaceChildren();if(!m.history.length)history.textContent='販売履歴はまだありません。';
+ for(const entry of m.history.slice(0,12)){const line=document.createElement('div');line.className='market-history-row';line.textContent=`第${entry.day}日 ${entry.name}　売上${entry.price}G ／ 損益${formatProfit(entry.profit)} ／ ★${entry.review}`;history.append(line);}
+ if(note)marketMessage(note);
 }
-el('resaleBuy').addEventListener('click',()=>{const before=game.money,r=buyItem(resale,before,el('resaleProduct').value);if(r.ok){resale=r.resale;game={...game,money:r.money};moneyChange(r.money-before,'フリマ仕入れ','商品の仕入れ')}updateEconomy();updateResalePanel(r.ok?'仕入れました。':r.reason)});
-el('resaleSell').addEventListener('click',()=>{const before=game.money,r=sellItem(resale,before,0,el('packingGrade').value,game.day);if(r.ok){resale=r.resale;game={...game,money:r.money};moneyChange(r.price,'フリマ売上','商品販売');moneyChange(r.money-before-r.price,'梱包・手数料','販売手数料と梱包資材')}updateEconomy();updateResalePanel(r.ok?`売値${r.price}G、手数料${r.fee}G、梱包${r.packingCost}G、今回の損益${r.profit>=0?'+':''}${r.profit}G、評価★${r.stars}。`:r.reason)});
+el('marketResearch').addEventListener('click',()=>{marketDesk=inspectMarket(marketDesk,game.day);updateResalePanel('本日の市場を調査しました。需要・競合数と相場を確認できます。');});
+el('marketCategory').addEventListener('change',()=>updateResalePanel());
+el('marketPricing').addEventListener('change',()=>{el('marketPrice').disabled=el('marketPricing').value==='auto';});
 function updateRentalPanel(){
  const t=state.selected.surface,property=state.layer==='surface'?selectProperty(RENTALS,t.x,t.y):null;
  el('rentSelected').disabled=!property||rented.includes(property.id)||owned.includes(property.id)||game.money<property.deposit;
@@ -344,11 +371,11 @@ el('researchStart').addEventListener('click',()=>{
 });
 
 // Save/load and scene presentation are intentionally outside the headless simulation.
-function snapshot(){return serializeSession({game,colony,social,world:worlds.underground,resale,rented,owned,surfaceEconomy,endingUnlocked,ledger});}
+function snapshot(){return serializeSession({game,colony,social,world:worlds.underground,resale,rented,owned,surfaceEconomy,endingUnlocked,ledger,marketDesk});}
 function saveStatus(message){el('saveStatus').textContent=message;}
 async function saveNow(){if(savePending)return;savePending=true;try{await saveSnapshot(snapshot());saveStatus(`保存済み：第${game.day}日`);}catch(e){saveStatus(`保存できません：${e.message}`);}finally{savePending=false;}}
 function restoreData(data){const d=validateSession(data);game=d.game;colony=d.colony;social=d.social;worlds.underground=hydrateWorld(d.world);
- if(!worlds.underground.zones.some(z=>z.id==='eastward')){const fresh=makeWorlds().underground;for(const z of fresh.zones.filter(z=>['eastward','deepward'].includes(z.id))){worlds.underground.zones.push(z);for(let x=z.x;x<z.x+z.w;x++)for(let y=z.y;y<z.y+z.h;y++)worlds.underground.closed.add(`${x},${y}`);}}resale=d.resale;rented=d.rented;owned=d.owned??[];surfaceEconomy=d.surfaceEconomy??initialSurfaceEconomy();endingUnlocked=!!d.endingUnlocked;ledger=d.ledger?validateLedger(d.ledger):createLedger(game.money,game.day);economyDay=game.day;lastRentDue=0;simAccumulator=0;lastTime=null;eventQueue=[];activeEvent=null;el('eventDialog').close?.();refreshConnectivity();updateEconomy();updateResalePanel();layerButton();updateEndingPanel();}
+ if(!worlds.underground.zones.some(z=>z.id==='eastward')){const fresh=makeWorlds().underground;for(const z of fresh.zones.filter(z=>['eastward','deepward'].includes(z.id))){worlds.underground.zones.push(z);for(let x=z.x;x<z.x+z.w;x++)for(let y=z.y;y<z.y+z.h;y++)worlds.underground.closed.add(`${x},${y}`);}}resale=d.resale;marketDesk=d.marketDesk??initialMarketDesk();rented=d.rented;owned=d.owned??[];surfaceEconomy=d.surfaceEconomy??initialSurfaceEconomy();endingUnlocked=!!d.endingUnlocked;ledger=d.ledger?validateLedger(d.ledger):createLedger(game.money,game.day);economyDay=game.day;lastRentDue=0;simAccumulator=0;lastTime=null;eventQueue=[];activeEvent=null;el('eventDialog').close?.();refreshConnectivity();updateEconomy();updateResalePanel();layerButton();updateEndingPanel();}
 el('saveButton').addEventListener('click',saveNow);
 el('exportButton').addEventListener('click',()=>{try{const data=snapshot();const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`zombie-colony-day${game.day}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);saveStatus('JSONバックアップを出力しました');}catch(e){saveStatus(e.message);}});
 el('importButton').addEventListener('click',()=>el('importFile').click());
@@ -409,7 +436,7 @@ const beforeTickMoney=game.money;game=stepGame(game);
         const todaysScenes=eventsForDay(0,social,colony,game).filter(e=>(e.kind==='incident'||e.kind==='research'||!prevHistoryIds.has(e.id))&&(e.kind!=='research'||!hadResearch));queueScenes(todaysScenes);updateEndingPanel();
         moneyChange(game.money-beforeEventsMoney,'事件・補償','対人事件・住民イベント',completedDay);const surfaceResult=advanceSurfaceEconomy(surfaceEconomy,game,owned,rented,completedDay);surfaceEconomy=surfaceResult.surface;
         game={...game,money:game.money+surfaceResult.net,alert:Math.max(0,game.alert-(surfaceResult.trust>=70?1:0))};moneyChange(surfaceResult.income,'地上事業売上',`来客${surfaceResult.visitors}人・人間${surfaceResult.humans}人`,completedDay);moneyChange(-surfaceResult.expenses,'地上施設維持費','運営・人件費',completedDay);
-        const bill=propertyBill(rented,owned,game.money);const paid=Math.min(game.money,bill.due);game={...game,money:game.money-paid,alert:Math.min(100,game.alert+(paid<bill.due?3:0))};moneyChange(-paid,'賃料','地上物件の家賃'+(paid<bill.due?'・未払い発生':'') ,completedDay);economyDay=game.day;lastRentDue=paid;updateResalePanel();updateColonyPanel();saveNow();}
+        const bill=propertyBill(rented,owned,game.money);const paid=Math.min(game.money,bill.due);game={...game,money:game.money-paid,alert:Math.min(100,game.alert+(paid<bill.due?3:0))};moneyChange(-paid,'賃料','地上物件の家賃'+(paid<bill.due?'・未払い発生':'') ,completedDay);economyDay=game.day;lastRentDue=paid;const marketDay=advanceMarket(marketDesk,game.day,surfaceEconomy.trust);marketDesk=marketDay.market;game={...game,money:game.money+marketDay.money};for(const sale of marketDay.sales){moneyChange(sale.price,'フリマ売上',sale.name+'・購入成立',completedDay);moneyChange(-sale.fee,'フリマ販売手数料',sale.name,completedDay);}if(marketDay.offers.length)marketMessage(`値下げ交渉が${marketDay.offers.length}件届いています。フリマで確認してください。`);updateResalePanel();updateColonyPanel();saveNow();}
 }
 
 function render(t){
@@ -433,7 +460,7 @@ if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostnam
 raf=requestAnimationFrame(render);
 
 // Map-centric sheets: the panel stays within the viewport instead of pushing the map down.
-let currentPanel='map';
+let currentPanel=null;
 // iOS Safari's visible area changes when its browser bars expand or retract.
 function updateScreenHeight(){ const h=window.visualViewport?.height||window.innerHeight; if(h>0)document.documentElement.style.setProperty('--game-screen-height',Math.round(h)+'px'); }
 updateScreenHeight();
@@ -444,26 +471,26 @@ viewport.appendChild(el('selectionPanel'));
 const sheet=document.createElement('div');sheet.id='mapSheet';sheet.className='map-sheet';sheet.hidden=true;
 const sheetHeader=document.createElement('div');sheetHeader.className='sheet-header';sheetHeader.innerHTML='<strong id="sheetTitle">メニュー</strong><button type="button" id="sheetClose" aria-label="パネルを閉じる">×</button>';
 const sheetBody=document.createElement('div');sheetBody.className='sheet-body';sheet.append(sheetHeader,sheetBody);viewport.append(sheet);
-const titles={jobs:'仕事と住民',build:'地下建設',supply:'配給・仕入れ',research:'研究ツリー',market:'フリマ経営',social:'人間関係',property:'地上物件',settings:'設定・セーブ'};
+const titles={jobs:'仕事と住民',build:'地下建設',supply:'配給・仕入れ',research:'研究ツリー',market:'フリマ経営',social:'人間関係',settings:'設定・セーブ'};
 for(const section of [...document.querySelectorAll('.game-panel > [data-screen]')])sheetBody.append(section);
 function showPanel(id){
  const oldSheetHeight=sheet.hidden?0:sheet.getBoundingClientRect().height;
- if(id===currentPanel&&id!=='map')id='map';
- currentPanel=id;sheet.hidden=id==='map';sheet.dataset.panel=id;sheet.querySelector('#sheetTitle').textContent=titles[id]??'メニュー';
- for(const section of sheetBody.querySelectorAll('[data-screen]'))section.hidden=id==='map'||section.dataset.screen!==id;
+ if(id===currentPanel&&id!==null)id=null;
+ currentPanel=id;sheet.hidden=id===null;sheet.dataset.panel=id??'none';sheet.querySelector('#sheetTitle').textContent=titles[id]??'メニュー';
+ for(const section of sheetBody.querySelectorAll('[data-screen]'))section.hidden=id===null||section.dataset.screen!==id;
  sheetBody.scrollTop=0;
- el('selectionPanel').hidden=id!=='map';
- for(const b of document.querySelectorAll('[data-nav]'))b.classList.toggle('active',b.dataset.nav===id||(b.dataset.nav==='more'&&['market','social','property','settings'].includes(id)));
+ el('selectionPanel').hidden=id!==null;
+ for(const b of document.querySelectorAll('[data-nav]'))b.classList.toggle('active',b.dataset.nav===id||(b.dataset.nav==='more'&&['social','settings'].includes(id)));
  if(id==='property'&&state.layer!=='surface')switchLayer('surface');
  if(id==='build'&&state.layer!=='underground')switchLayer('underground');
- if(id==='map'&&tool!=='inspect')setTool('inspect');
+ if(id===null&&tool!=='inspect')setTool('inspect');
  const newSheetHeight=sheet.hidden?0:sheet.getBoundingClientRect().height;
  // Shift the map to the uncovered area instead of leaving important tiles beneath the sheet.
  const delta=(oldSheetHeight-newSheetHeight)/2;
  state.view={...state.view,cy:state.view.cy+delta};
  state.view=boundCamera(state.view,bounds.width,bounds.height);
 }
-el('sheetClose').addEventListener('click',()=>showPanel('map'));
+el('sheetClose').addEventListener('click',()=>showPanel(null));
 for(const b of document.querySelectorAll('[data-nav]'))b.addEventListener('click',()=>{
  if(b.dataset.nav==='more'){el('moreDialog').showModal();return;}showPanel(b.dataset.nav);
 });
@@ -529,4 +556,4 @@ function updateTree(){
 }
 // Tree UI is refreshed by the main render cycle without rebuilding native selectors.
 const treeObserver=new MutationObserver(updateTree);treeObserver.observe(el('researchStatus'),{childList:true,characterData:true,subtree:true});
-showPanel('map');updateTree();
+showPanel(null);updateTree();
