@@ -1,6 +1,7 @@
+import { MAP_SIZE } from './geometry.js';
 import { canBuild, applyConstruction, FACILITY_SIZES } from './construction.js';
 const k=(x,y)=>`${x},${y}`;
-const within=(x,y)=>x>=0&&y>=0&&x<16&&y<16;
+const within=(x,y)=>x>=0&&y>=0&&x<MAP_SIZE&&y<MAP_SIZE;
 const occupied=(w,x,y)=>w.buildings.some(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h);
 // Dijkstra route: prefer existing corridors, never cross buildings or closed zones.
 export function planCorridor(world,start,end,money){
