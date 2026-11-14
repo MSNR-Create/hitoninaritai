@@ -73,7 +73,7 @@ function updateConstruction(){
 function status(message){el('buildMessage').textContent=message;}
 function refreshConnectivity(){worlds.underground.connectivity=connectedFacilities(worlds.underground);}
 function setTool(next){tool=next;pathStart=null;corridorChoice=null;buildChoice=null;demolishChoice=null;hoverTile=state.selected.underground;placement=null;updateConstruction();updatePlacement();
- status(tool==='path'?'通路の始点をタップ後、始点からドラッグして離すと施工。タップ操作も可能。':tool==='home'||tool==='shop'||tool==='lab'?`${tool==='home'?'住居 3×2':tool==='lab'?'研究室 2×2':'配給所 2×3'} の位置を選択→占有範囲内を再タップして建設。`:tool==='unlock'?'閉鎖区画をタップして選択し、再タップして開放。':tool==='demolish'?'施設・通路をタップして選択→同じ対象を再タップして撤去。':'マップを観察できます。');}
+ status(tool==='path'?'空き地を押したまま指を滑らせ、離すと通路を施工。1マスだけなら同じマスを2回タップ。施設を稼働させるには出口につなげてください。':tool==='home'||tool==='shop'||tool==='lab'?`${tool==='home'?'住居 3×2':tool==='lab'?'研究室 2×2':'配給所 2×3'} の位置を選択→占有範囲内を再タップして建設。`:tool==='unlock'?'閉鎖区画をタップして選択し、再タップして開放。':tool==='demolish'?'施設・通路をタップして選択→同じ対象を再タップして撤去。':'マップを観察できます。');}
 for(const btn of document.querySelectorAll('[data-tool]'))btn.addEventListener('click',()=>{if(state.layer!=='underground'&&btn.dataset.tool!=='inspect')switchLayer('underground');setTool(btn.dataset.tool)});
 function rectangle(x,y,w,h){const cells=[];for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)cells.push({x:xx,y:yy});return cells;}
 function updatePlacement(){
@@ -173,7 +173,7 @@ canvas.addEventListener('pointerdown',evt=>{
 canvas.addEventListener('pointermove',evt=>{
   if(!state.pointers.has(evt.pointerId))return;
   const point=canvasCoords(evt);state.pointers.set(evt.pointerId,point);
-  if(state.layer==='underground'&&tool!=='inspect'&&state.pointers.size===1){const t=atPoint(point);if(t){hoverTile=t;if(tool==='path'){const begin=corridorChoice?.start??state.gesture?.startTile;if(begin)corridorChoice={start:begin,end:t};}updatePlacement();}}
+  if(state.layer==='underground'&&tool!=='inspect'&&state.pointers.size===1){const t=atPoint(point);if(t){hoverTile=t;if(tool==='path'){const begin=corridorChoice?.start??state.gesture?.startTile;if(begin)corridorChoice={start:state.gesture?.startTile??begin,end:t};}updatePlacement();}}
   if(state.pointers.size===1&&state.gesture?.mode==='drag'){
     const g=state.gesture;const deltaX=point.x-g.prev.x,deltaY=point.y-g.prev.y;
     if(Math.hypot(point.x-g.start.x,point.y-g.start.y)>7)g.moved=true;
@@ -192,7 +192,7 @@ function endPointer(evt){
   const tile=screenBuilding?{x:screenBuilding.x,y:screenBuilding.y}:atPoint(point);
   if(evt.type==='pointerup'&&one&&tile){
     if(g?.mode==='drag'&&g.moved&&tool==='path'&&state.layer==='underground'){
-      const begin=corridorChoice?.start??g.startTile;if(begin)buildCorridorDrag(begin,tile);
+      const begin=g.startTile;if(begin)buildCorridorDrag(begin,tile);
     }else if(g?.mode==='drag'&&!g.moved){
       state.selected[state.layer]=tile;hoverTile=tile;updateSelection();
       if(tool!=='inspect')buildAt(tile);else if(state.layer==='surface')openPropertyDialog(tile);
