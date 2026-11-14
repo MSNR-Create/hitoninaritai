@@ -299,7 +299,7 @@ function renderPropertyDialog(){
 }
 el('propertyClose').addEventListener('click',()=>el('propertyDialog').close());
 function updateSurfacePanel(){
- worlds.surface.humanCount=surfaceEconomy.humans;
+ worlds.surface.humanCount=surfaceEconomy.humans;worlds.surface.humanTrust=surfaceEconomy.trust;
  const last=surfaceEconomy.last;
  el('surfaceEconomyInfo').textContent=`人間 ${surfaceEconomy.humans}人 · 信頼 ${surfaceEconomy.trust}/100 · 来客 ${last?.visitors??'—'}人 · 前日売上 +${last?.income??0}G · 維持費 −${last?.expenses??0}G。警戒度が上がると客足と人口が減ります。`;
 }
