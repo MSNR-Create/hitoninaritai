@@ -1,0 +1,11 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {chooseFootprint,chooseCorridor} from '../src/placement-interaction.js';
+import {buyProperty,propertyBill,selectProperty} from '../src/property.js';
+import {RENTALS} from '../src/rentals.js';
+test('building first tap previews and second tap inside footprint commits',()=>{let r=chooseFootprint(null,'home',{x:3,y:4},[3,2]);assert.equal(r.commit,false);r=chooseFootprint(r.candidate,'home',{x:5,y:5},[3,2]);assert.equal(r.commit,true);assert.equal(r.candidate.x,3)});
+test('different building location repositions without commit',()=>{const a=chooseFootprint(null,'lab',{x:3,y:4},[2,2]);const b=chooseFootprint(a.candidate,'lab',{x:7,y:6},[2,2]);assert.equal(b.commit,false);assert.deepEqual([b.candidate.x,b.candidate.y],[7,6])});
+test('switching building tool does not commit another kind',()=>{const a=chooseFootprint(null,'home',{x:3,y:4},[3,2]);const b=chooseFootprint(a.candidate,'lab',{x:3,y:4},[2,2]);assert.equal(b.commit,false)});
+test('corridor start end confirmation, end may move',()=>{let a=chooseCorridor(null,{x:3,y:4});assert.equal(a.commit,false);let b=chooseCorridor(a.state,{x:7,y:4});assert.equal(b.commit,false);let c=chooseCorridor(b.state,{x:8,y:4});assert.equal(c.commit,false);assert.equal(c.state.end.x,8);let d=chooseCorridor(c.state,{x:8,y:4});assert.equal(d.commit,true)});
+test('property purchase transfers rented to owned and eliminates daily rent',()=>{const a=buyProperty([],['warehouse'],900,'warehouse');assert.equal(a.ok,true);assert.deepEqual(a.rented,[]);assert.deepEqual(a.owned,['warehouse']);assert.equal(propertyBill(a.rented,a.owned,120).due,0)});
+test('property purchase checks funds and duplicate',()=>{assert.equal(buyProperty([],[],899,'warehouse').ok,false);assert.equal(buyProperty(['warehouse'],[],2000,'warehouse').ok,false)});
+test('property hit testing includes proper boundary',()=>{const p=selectProperty(RENTALS,2,3);assert.equal(p.id,'apartment');assert.equal(selectProperty(RENTALS,5,3),null)});
