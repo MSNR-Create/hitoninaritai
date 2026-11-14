@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><meta name="theme-color" content="#142b38"/>
-<title>ゾンビだって暮らしたい！ — v1.4 フリマ経営・メニュー改善</title><link rel="stylesheet" href="./styles.css?v=1400"/></head>
+<title>ゾンビだって暮らしたい！ — v1.5 UI刷新・90度回転・室内表示</title><link rel="stylesheet" href="./styles.css?v=1500"/></head>
 <body>
 <div class="app-shell">
 <header class="topbar">
@@ -14,7 +14,7 @@
 <main class="game-panel">
   <div class="scene-toolbar"><div><p class="eyebrow" id="sceneSubtitle">閉鎖区画と住民の生活拠点</p><h2 id="sceneName">地下タウン</h2></div><div class="layers" role="group" aria-label="マップを切り替え"><button data-layer="underground" class="active" aria-pressed="true">↓ 地下</button><button data-layer="surface" aria-pressed="false">↑ 地上</button></div></div>
   <div class="game-clock" aria-label="ゲーム内の日時と時間操作"><div class="clock-reading"><strong id="gameDateLabel">第1日 · 06:00</strong><small id="gamePhaseLabel">昼 · 1日120秒</small></div><div class="clock-actions"><button id="clockPause" type="button" aria-label="一時停止">Ⅱ</button><button id="clockSpeed" type="button" aria-label="ゲーム速度を変更">1×</button><button id="clockNext" type="button" title="次の朝まで進める">翌朝 »</button></div></div>
-  <div id="viewport" class="viewport"><canvas id="scene" aria-label="斜め見下ろしの24×24マップ。タップでタイルを選択" role="img"></canvas><div class="controls"><button id="zoomIn" aria-label="拡大">＋</button><span id="zoomValue">100%</span><button id="zoomOut" aria-label="縮小">−</button><button id="resetView" class="reset-btn" aria-label="表示位置を初期化">⌖</button></div><div class="canvas-tip">ドラッグで移動 · ピンチで拡大縮小</div></div>
+  <div id="viewport" class="viewport"><canvas id="scene" aria-label="斜め見下ろしの24×24マップ。タップでタイルを選択" role="img"></canvas><div class="controls"><button id="zoomIn" aria-label="拡大">＋</button><span id="zoomValue">100%</span><button id="zoomOut" aria-label="縮小">−</button><button id="rotateView" title="90度回転" aria-label="マップを90度回転">↻</button><button id="resetView" class="reset-btn" aria-label="表示位置を初期化">⌖</button></div><div class="canvas-tip">ドラッグで移動 · ピンチで拡大縮小</div></div>
   <section class="economy-panel" aria-label="仕事と昼夜進行" data-screen="jobs"><div class="economy-toolbar"><strong id="dayValue">第1日 昼</strong><span id="progressValue">0/120 秒</span><button id="pauseButton">Ⅱ 一時停止</button><button id="speedButton">1× 速度</button></div><p id="reportValue" class="economy-report">夜が終わると収支が確定します。</p><h3>住民の仕事を割り当てる</h3><div id="residentJobs" class="resident-jobs"></div><small>昼60秒・夜60秒。夜の開始時に仕事を確定し、出発→外部勤務→帰還→休息をマップで表現。翌朝に報酬・食料・疲労を更新。お任せは体調・備蓄・資金で行動を決定。疲労や配給不足によるストライキ、対人事件による住民喪失、空き住居での眷属化を試作。</small></section>
   <section class="construction-panel" aria-label="人間との交流と事件履歴" data-screen="social"><div class="construction-heading"><strong>🤝 人間との交流・事件の履歴</strong><span>行動の原因を追跡</span></div><p id="neighborSummary">隣人情報を読み込み中</p><ol id="socialHistory" class="social-history"></ol><h3 id="socialTitle">住民を選択してください</h3><p id="socialDetail">仕事一覧の「関係・履歴」ボタンで住民の交流を確認できます。</p><ol id="socialPersonalHistory" class="social-history"></ol><small>親密度が高まり、食料と住居に余裕があると隣人が眷属になります。不審な接触が続くと通報で警戒度が上昇します。</small></section>
   <section class="construction-panel" aria-label="地下開発" data-screen="build"><div class="construction-heading"><strong>🔨 建築パレット</strong><span>範囲を選択→再タップで確定</span></div>
@@ -51,4 +51,4 @@
 <dialog id="moreDialog"><h2>その他のメニュー</h2><div class="more-actions"><button data-more="social">🤝 人間関係</button><button data-more="settings">⚙️ 設定・セーブ</button></div><button id="moreClose">閉じる</button></dialog>
 <dialog id="helpDialog"><h2>操作ガイド</h2><p>マップをタップするとタイルや施設を選択できます。ドラッグで移動、2本指で拡大・縮小。右側の＋/−でズームし、⌖で初期位置に戻ります。</p><p>地上／地下を切り替えても各階層の選択位置は保持します。マップ移動は境界で止まります。地下マップの閉鎖区画を選択して開放、空きタイルを選択して通路・住居・配給所・研究室を建設できます。建築費用は資金から引かれます。保存はIndexedDBに対応しています。</p><button id="closeHelp">閉じる</button></dialog>
 <dialog id="eventDialog" class="event-dialog" aria-labelledby="eventTitle"><div class="event-head"><span id="eventDay">第1日</span><span id="eventCount">残り0件</span></div><h2 id="eventTitle">イベント</h2><canvas id="eventCanvas" width="320" height="170" role="img" aria-label="イベントのドット絵アニメーション"></canvas><p id="eventNarrative"></p><p id="eventReason" class="event-reason"></p><button id="eventNext">確認して続ける</button></dialog>
-<link rel="manifest" href="./manifest.webmanifest"/><script type="module" src="./src/main.js?v=1400"></script></body></html>
+<link rel="manifest" href="./manifest.webmanifest"/><script type="module" src="./src/main.js?v=1500"></script></body></html>
