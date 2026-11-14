@@ -57,7 +57,23 @@ export function makeWorlds() {
     ],
     accents: tileSet([[2,10],[3,10],[4,11],[13,7],[13,8],[8,13],[4,2],[7,2]])
   };
-  const infrastructure=createCityInfrastructure(surface.buildings);
+  // Human-owned buildings form a lived-in streetscape; they are scenery,
+  // not empty purchasable lots. Existing investable properties stay unchanged.
+  surface.cityBuildings=[
+    {id:'city-r1',kind:'humanHome',x:0,y:10,w:3,h:3,name:'民家'},
+    {id:'city-r2',kind:'humanHome',x:4,y:11,w:3,h:2,name:'民家'},
+    {id:'city-r3',kind:'market',x:11,y:18,w:3,h:3,name:'雑貨店'},
+    {id:'city-r4',kind:'cafe',x:18,y:18,w:3,h:3,name:'食堂'},
+    {id:'city-r5',kind:'humanHome',x:20,y:2,w:3,h:3,name:'住宅'},
+    {id:'city-r6',kind:'warehouse',x:2,y:21,w:4,h:2,name:'配送所'},
+    {id:'city-r7',kind:'humanHome',x:11,y:22,w:3,h:2,name:'住宅'},
+    {id:'city-r8',kind:'humanHome',x:18,y:22,w:3,h:2,name:'住宅'},
+    {id:'city-r9',kind:'market',x:20,y:11,w:3,h:3,name:'日用品店'},
+    {id:'city-r10',kind:'humanHome',x:0,y:0,w:3,h:2,name:'住宅'},
+    {id:'city-r11',kind:'market',x:11,y:0,w:3,h:2,name:'小売店'},
+    {id:'city-r12',kind:'clinic',x:18,y:0,w:3,h:2,name:'薬局'}
+  ];
+  const infrastructure=createCityInfrastructure([...surface.buildings,...surface.cityBuildings]);
   surface.paths=infrastructure.roads;surface.sidewalks=infrastructure.sidewalks;
   return { underground, surface };
 }
