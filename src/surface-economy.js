@@ -1,4 +1,5 @@
 import { RENTALS } from './rentals.js';
+import { ROAD_COLUMNS, ROAD_ROWS } from './surface-city.js';
 
 export const PROPERTY_ROLES=Object.freeze({
  apartment:{name:'人間用アパート',detail:'人間が暮らす住宅。入居数が増えると来客と地域の信頼が増える。',capacity:12,base:11},
@@ -8,6 +9,23 @@ export const PROPERTY_ROLES=Object.freeze({
  cafe:{name:'街角カフェ',detail:'交流の場。人口と人間との関係が良いほど売上が伸びる。',capacity:0,base:17},
  flats:{name:'集合住宅',detail:'人間の居住地。空室が埋まると周辺の客足が増える。',capacity:16,base:12}
 });
+/** Fixed, inspectable location score: sidewalks/roads facing a property's perimeter. */
+export function propertyLocation(id){
+ const property=RENTALS.find(r=>r.id===id);
+ if(!property)return null;
+ let frontage=0;
+ const roads=new Set();
+ for(let x=property.x-1;x<=property.x+property.w;x++)for(let y=property.y-1;y<=property.y+property.h;y++){
+  const adjacent=(x===property.x-1||x===property.x+property.w)?y>=property.y&&y<property.y+property.h:
+    (y===property.y-1||y===property.y+property.h)&&x>=property.x&&x<property.x+property.w;
+  if(!adjacent)continue;
+  const direct=ROAD_COLUMNS.includes(x)||ROAD_ROWS.includes(y);
+  const access=direct||ROAD_COLUMNS.some(c=>Math.abs(c-x)===1)||ROAD_ROWS.some(r=>Math.abs(r-y)===1);
+  if(direct){frontage+=2;roads.add(`${x},${y}`);}else if(access)frontage++;
+ }
+ const accessibility=Math.min(1.25,.72+Math.min(8,frontage)*.065);
+ return {frontage,accessibility,grade:frontage>=6?'駅前級':frontage>=3?'通り沿い':frontage>=1?'住宅街':'路地裏'};
+}
 export function initialSurfaceEconomy(){return {humans:34,trust:55,leasedOut:[],history:[],last:null};}
 export function tradeProperty(surface,owned,rented,id,action,money){
  const p=RENTALS.find(r=>r.id===id);if(!p)return {ok:false,reason:'物件が見つかりません'};
@@ -38,9 +56,10 @@ export function advanceSurfaceEconomy(surface,game,owned,rented,day){
  const visitors=Math.max(2,Math.round(humans*(.32+trust/175)*(1-alert/145)));
  const items=active.map(p=>{
   const role=PROPERTY_ROLES[p.id],isSublet=leasing.includes(p.id);
-  const gross=isSublet?Math.floor(p.rent*1.45):Math.round(role.base*(.3+visitors/32)*(0.4+trust/100));
+  const location=propertyLocation(p.id);
+  const gross=isSublet?Math.floor(p.rent*1.45):Math.round(role.base*(.3+visitors/32)*(0.4+trust/100)*location.accessibility);
   const upkeep=isSublet?0:Math.max(2,Math.ceil(gross*.24));
-  return {id:p.id,name:p.name,gross,upkeep,net:gross-upkeep,leasedOut:isSublet};
+  return {id:p.id,name:p.name,gross,upkeep,net:gross-upkeep,leasedOut:isSublet,location:location.grade,frontage:location.frontage};
  });
  const income=items.reduce((n,p)=>n+p.gross,0),expenses=items.reduce((n,p)=>n+p.upkeep,0);
  const last={day,humans,trust,visitors,income,expenses,net:income-expenses,items};
