@@ -1,5 +1,5 @@
-const CACHE='zombie-colony-v08-3';
-const ASSETS=['./','./index.html','./styles.css','./manifest.webmanifest','./icon.svg','./src/main.js','./src/geometry.js','./src/world.js','./src/render.js','./src/camera.js','./src/simulation.js','./src/agent.js','./src/construction.js','./src/planning.js','./src/resale.js','./src/rentals.js','./src/property.js','./src/placement-interaction.js','./src/colony.js','./src/social.js','./src/persistence.js','./src/event-scenes.js'];
+const CACHE='zombie-colony-v09-1';
+const ASSETS=['./','./index.html','./styles.css','./manifest.webmanifest','./icon.svg','./src/main.js','./src/finance.js','./src/geometry.js','./src/world.js','./src/render.js','./src/camera.js','./src/simulation.js','./src/agent.js','./src/construction.js','./src/planning.js','./src/resale.js','./src/rentals.js','./src/property.js','./src/placement-interaction.js','./src/colony.js','./src/social.js','./src/persistence.js','./src/event-scenes.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('zombie-colony-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
