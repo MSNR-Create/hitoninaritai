@@ -1,4 +1,5 @@
 import { MAP_SIZE, inBounds } from './geometry.js';
+import { createCityInfrastructure } from './surface-city.js';
 
 const coords = (x, y) => `${x},${y}`;
 function fillRectangle(set, x0, y0, x1, y1) {
@@ -44,7 +45,7 @@ export function makeWorlds() {
   }
   const surface = {
     id: 'surface', name: '地上', subtitle: '夜の人間社会につながる街',
-    closed: new Set(), paths: new Set(),
+    closed: new Set(), paths: new Set(), sidewalks: new Set(),
     buildings: [
       { id: 'street-home', name: '人間の住宅', kind: 'humanHome', x: 2, y: 3, w: 3, h: 3, description: '地域の人間が暮らす住宅。住民が増えると商業施設の売上が増えます。' },
       { id: 'market', name: '夜の商店', kind: 'market', x: 10, y: 3, w: 3, h: 3, description: '街の人間の買い物先。人口と信頼が売上に影響します。' },
@@ -56,6 +57,8 @@ export function makeWorlds() {
     ],
     accents: tileSet([[2,10],[3,10],[4,11],[13,7],[13,8],[8,13],[4,2],[7,2]])
   };
+  const infrastructure=createCityInfrastructure(surface.buildings);
+  surface.paths=infrastructure.roads;surface.sidewalks=infrastructure.sidewalks;
   return { underground, surface };
 }
 
@@ -68,6 +71,7 @@ export function describeTile(world, x, y) {
   const building = buildingAt(world, x, y);
   if (building) return { title: building.name, description: building.description, type: '施設', building };
   if (world.closed.has(coords(x,y))) return { title: '閉鎖区画', description: '区画を選択して開放できます。', type: '閉鎖' };
-  if (world.paths.has(coords(x,y))) return { title: '地下通路', description: '施設の接続に使う地下通路です。', type: '通路' };
+  if (world.paths.has(coords(x,y))) return world.id==='surface'?{ title:'街の車道',description:'人間の街の道路です。自動車が行き交い、周辺に人通りが生まれます。',type:'道路' }:{ title: '地下通路', description: '施設の接続に使う地下通路です。', type: '通路' };
+  if(world.id==='surface'&&world.sidewalks?.has(coords(x,y))) return {title:'街の歩道',description:'住民が往来する歩行者の道です。',type:'歩道'};
   return { title: world.id === 'surface' ? '街の地面' : '空き区画', description: '現在は選択・描画の検証用タイルです。', type: '地面' };
 }
