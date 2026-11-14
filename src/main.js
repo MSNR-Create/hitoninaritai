@@ -141,6 +141,21 @@ function buildCorridorDrag(start,end){
  corridorChoice=null;pathStart=null;hoverTile=null;refreshConnectivity();updatePlacement();updateSelection();updateEconomy();saveNow();
  status(`${plan.newTiles.length}マスの通路を施工（−${result.cost}G）。`);
 }
+function visibleBuildingAt(point){
+ const world=worlds[state.layer];
+ const inside=(vertices)=>{let hit=false;for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
+  const a=vertices[i],b=vertices[j],crosses=(a.y>point.y)!==(b.y>point.y);
+  if(crosses&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
+ }return hit;};
+ const list=[...world.buildings].sort((a,b)=>(b.x+b.y+b.w+b.h)-(a.x+a.y+a.w+a.h));
+ for(const b of list){
+  const pts=[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]].map(([x,y])=>{const w=tileToWorld(x,y);return worldToView(w.x,w.y,state.view)});
+  const ht=(b.kind==='exit'?19:['shop','market','cafe'].includes(b.kind)?42:54)*state.view.zoom;
+  const top=pts.map(p=>({x:p.x,y:p.y-ht}));
+  if(inside(top)||inside([pts[3],pts[2],top[2],top[3]])||inside([pts[1],pts[2],top[2],top[1]]))return b;
+ }
+ return null;
+}
 function atPoint(point){return hitTile(point.x,point.y,state.view);}
 function switchLayer(layer){if(!worlds[layer])return;state.layer=layer; if(layer==='surface'&&tool!=='inspect')setTool('inspect');layerButton();updateRentalPanel();}
 function canvasCoords(evt){const r=canvas.getBoundingClientRect();return{x:evt.clientX-r.left,y:evt.clientY-r.top};}
@@ -173,7 +188,8 @@ canvas.addEventListener('pointermove',evt=>{
 function endPointer(evt){
   if(!state.pointers.has(evt.pointerId))return;
   const point=canvasCoords(evt),g=state.gesture,one=state.pointers.size===1;
-  const tile=atPoint(point);
+  const screenBuilding=(state.layer==='surface'||tool==='demolish')?visibleBuildingAt(point):null;
+  const tile=screenBuilding?{x:screenBuilding.x,y:screenBuilding.y}:atPoint(point);
   if(evt.type==='pointerup'&&one&&tile){
     if(g?.mode==='drag'&&g.moved&&tool==='path'&&state.layer==='underground'){
       const begin=corridorChoice?.start??g.startTile;if(begin)buildCorridorDrag(begin,tile);
