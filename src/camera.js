@@ -1,7 +1,7 @@
 import { clamp, viewToWorld } from './geometry.js';
 
 // Conservative map envelope, including tall building silhouettes, in world units.
-export const WORLD_EXTENTS = Object.freeze({ left:-512, right:512, top:-70, bottom:520 });
+export const WORLD_EXTENTS = Object.freeze({ left:-768, right:768, top:-90, bottom:800 });
 
 function axisClamp(pan, center, zoom, length, low, high, margin=72) {
   const minScreen=margin, maxScreen=length-margin;
