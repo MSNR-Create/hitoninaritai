@@ -15,6 +15,7 @@ import { initialSocial, advanceSocial, recordDeaths, NEIGHBORS } from './social.
 import { serializeSession, validateSession, hydrateWorld, saveSnapshot, loadSnapshot, clearSnapshots } from './persistence.js';
 import { sceneDefinition, paintEvent, eventsForDay } from './event-scenes.js';
 import { createLedger, addTransaction, daySummary, balanceSeries, validateLedger } from './finance.js';
+import { formattedGameClock, ticksUntilNextDay, nextSpeed } from './game-clock.js';
 
 const canvas=document.getElementById('scene');const ctx=canvas.getContext('2d',{alpha:false});
 const viewport=document.getElementById('viewport');const worlds=makeWorlds();
@@ -234,7 +235,10 @@ function updateEconomy(){
   el('alertValue').textContent=game.alert;
   updateConstruction();updateRentalPanel();updateColonyPanel();updateSocialPanel();
   const clock=game.tick%120,night=clock>=60;
-  el('dayValue').textContent=`第${game.day}日 ${night?'夜':'昼'} · ${Math.floor((clock%60)/60*12)+(night?18:6)}時`;
+  const clockInfo=formattedGameClock(game.day,game.tick);
+  el('dayValue').textContent=clockInfo.dateTime;
+  el('gameDateLabel').textContent=clockInfo.dateTime;
+  el('gamePhaseLabel').textContent=`${clockInfo.phase} · 1日120秒`;
   el('progressValue').textContent=`${clock}/120 秒`;
   const message=game.lastReport?`前日：+${game.lastReport.income}G / 調達 +${game.lastReport.harvest} / 配給不足 ${colony.report?.shortage??0}体 / 地上賃料 -${lastRentDue}G`:'仕事を選び、夜になると成果が反映されます。';
   el('reportValue').textContent=message;
@@ -305,13 +309,28 @@ el('adaptResearchButton').addEventListener('click',()=>{
 });
 el('endResearchButton').addEventListener('click',()=>{const hasLab=worlds.underground.buildings.some(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]);if(!colony.completedResearch.includes('adaptation')||!hasLab){saveStatus('先に社会適応研究を完了してください');return;}if(game.money<500||colony.inventory.samples<5){saveStatus('人間化研究には500Gと資材5個が必要です');return;}game={...game,money:game.money-500};moneyChange(-500,'研究','人間化の最終研究');colony={...colony,inventory:{...colony.inventory,samples:colony.inventory.samples-5}};endingUnlocked=true;updateEconomy();updateEndingPanel();queueScenes([{id:'humanity-tech',kind:'research',day:game.day,message:'人間化技術が完成した。これからの暮らし方を選べる。',reason:'衝動抑制の完成と追加の研究投資'}]);saveNow();});
 for(const b of document.querySelectorAll('[data-ending]'))b.addEventListener('click',()=>{const name={'human':'人間復帰','colony':'地下楽園','coexist':'共存'}[b.dataset.ending];queueScenes([{id:'final-'+b.dataset.ending,kind:'ending',day:game.day,message:`${name}エンド：住民たちは自分たちの未来を選んだ。引き続き自由に街を運営できます。`,reason:'人間化研究を完了し、進路を選択した'}]);el('endingResult').textContent=`到達：${name}エンド（継続プレイ可能）`;saveNow();});
-el('pauseButton').addEventListener('click',()=>{paused=!paused;el('pauseButton').textContent=paused?'▶ 再開':'Ⅱ 一時停止';});
-el('speedButton').addEventListener('click',()=>{speed=speed===1?2:1;el('speedButton').textContent=`${speed}× 速度`;});
+el('pauseButton').addEventListener('click',()=>{paused=!paused;el('pauseButton').textContent=paused?'▶ 再開':'Ⅱ 一時停止';if(el('clockPause'))syncClockButtons();});
+function syncClockButtons(){
+  el('speedButton').textContent=`${speed}× 速度`;
+  el('clockSpeed').textContent=`${speed}×`;
+  el('clockPause').textContent=paused?'▶':'Ⅱ';
+  el('clockPause').setAttribute('aria-label',paused?'再開':'一時停止');
+}
+function toggleSpeed(){speed=nextSpeed(speed);syncClockButtons();}
+el('speedButton').addEventListener('click',toggleSpeed);
+el('clockSpeed').addEventListener('click',toggleSpeed);
+el('clockPause').addEventListener('click',()=>{el('pauseButton').click();syncClockButtons();});
+el('clockNext').addEventListener('click',()=>{
+  if(activeEvent)return;
+  const count=ticksUntilNextDay(game.tick);
+  for(let i=0;i<count;i++)advanceOneTick();
+  simAccumulator=0;lastTime=null;updateEconomy();
+  // If a day-end event is queued, show its visual scene before further input.
+});
+syncClockButtons();
 updateEconomy();
-function render(t){
-  const elapsed=lastTime===null?0:Math.min(.25,(t-lastTime)/1000);lastTime=t;
-  if(!paused&&!activeEvent){simAccumulator+=elapsed*speed;let updated=false;
-    while(simAccumulator>=1){const beforeTickMoney=game.money;game=stepGame(game);simAccumulator-=1;updated=true;
+function advanceOneTick(){
+const beforeTickMoney=game.money;game=stepGame(game);
       if(game.day!==economyDay){
         const completedDay=game.day-1;moneyChange(game.money-beforeTickMoney,'アルバイト','外部勤務の報酬',completedDay);const beforeEventsMoney=game.money;
         colony={...colony,inventory:{...colony.inventory,food:colony.inventory.food+game.lastReport.harvest}};
@@ -326,6 +345,14 @@ function render(t){
         game={...game,food:colony.inventory.food};
         const todaysScenes=eventsForDay(0,social,colony,game).filter(e=>(e.kind==='incident'||e.kind==='research'||!prevHistoryIds.has(e.id))&&(e.kind!=='research'||!hadResearch));queueScenes(todaysScenes);updateEndingPanel();
         moneyChange(game.money-beforeEventsMoney,'事件・補償','対人事件・住民イベント',completedDay);const bill=propertyBill(rented,owned,game.money);game={...game,money:bill.money};moneyChange(-bill.due,'賃料','地上物件の家賃',completedDay);economyDay=game.day;lastRentDue=bill.due;updateResalePanel();updateColonyPanel();saveNow();}
+}
+
+function render(t){
+  const elapsed=lastTime===null?0:Math.min(.25,(t-lastTime)/1000);lastTime=t;
+  if(!paused&&!activeEvent){simAccumulator+=elapsed*speed;let updated=false;
+    while(simAccumulator>=1){
+      advanceOneTick();simAccumulator-=1;updated=true;
+      if(activeEvent)break;
     }
     if(updated)updateEconomy();
   }
