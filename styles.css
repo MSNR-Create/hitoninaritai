@@ -34,3 +34,19 @@ body{overflow-x:hidden}.app-shell{padding-bottom:calc(78px + env(safe-area-inset
 .research-node{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;font-weight:700}.research-node small{font-size:10px;color:#c2d5cf}.research-node.completed{background:#476e56;border-color:#b2dcaf}.research-node.locked{background:#283b43;color:#95a9ad}.research-arrow{color:#a3cdb5;font-size:20px}
 .more-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}.more-actions button{background:#2d5460;color:#e8f4ec;font-size:13px}
 @media(max-width:520px){.app-shell{padding-top:6px;gap:5px;padding-bottom:calc(74px + env(safe-area-inset-bottom))}.brand-icon{width:29px;height:29px}.prototype-note{display:none}.viewport{height:clamp(310px,57dvh,650px)}.game-panel>[data-screen]{max-height:47dvh}.scene-toolbar{padding:7px 10px}.bottom-menu button span{font-size:9px}}
+
+/* v0.9: contextual panel overlays the map, preserves native select interaction */
+.game-panel{position:relative}.viewport{height:clamp(420px,67dvh,740px)}
+.map-sheet{position:absolute;left:8px;right:8px;bottom:9px;top:42px;z-index:8;display:flex;flex-direction:column;background:#142d3beF;border:1px solid #668787;border-radius:15px;box-shadow:0 12px 36px #0009;pointer-events:auto;overflow:hidden;backdrop-filter:blur(9px)}
+.sheet-header{flex:none;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#284750;border-bottom:1px solid #55727b}.sheet-header strong{font-size:14px}.sheet-header button{border:1px solid #779293;background:#385764;color:white;border-radius:8px;width:36px;height:33px;font-size:22px;line-height:1}
+.sheet-body{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;padding-bottom:12px}.sheet-body>[data-screen]{max-height:none!important;overflow:visible!important}.sheet-body button,.sheet-body select{touch-action:manipulation}.sheet-body .resident-row{min-height:52px}
+#statsDialog{max-height:85dvh;overflow:auto}#statsDialog #financeView p{font-size:12px;margin:7px 0}#statsDialog #financeChart{width:100%;height:auto;max-height:170px;background:#112a37;border:1px solid #42606b;border-radius:9px;display:block}#financeTransactions{max-height:145px;overflow:auto;padding-left:22px;font-size:12px;line-height:1.7}#financeView small{font-size:10px;color:#abc4c7}
+@media(max-width:520px){.viewport{height:clamp(410px,67dvh,700px)}.map-sheet{left:5px;right:5px;top:38px;bottom:5px}.sheet-body .construction-panel,.sheet-body .economy-panel{padding:11px}.sheet-body .resident-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px}.sheet-body .resident-row span{font-size:11px}}
+
+/* Build and property sheets expose the world for direct tile selection. */
+.map-sheet[data-panel="build"]{top:auto;height:min(218px,35dvh);bottom:7px}
+.map-sheet[data-panel="property"]{top:auto;height:min(260px,42dvh);bottom:7px}
+.map-sheet[data-panel="jobs"]{top:28%;bottom:7px}
+.map-sheet[data-panel="supply"]{top:auto;height:min(290px,48dvh);bottom:7px}
+.map-sheet[data-panel="research"]{top:18%;bottom:7px}
+@media(max-width:520px){.map-sheet[data-panel="build"]{height:min(202px,36dvh)}.map-sheet[data-panel="property"]{height:min(245px,43dvh)}}
