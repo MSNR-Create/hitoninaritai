@@ -23,7 +23,7 @@ function buildingShape(ctx,b,connected=true) {
   const ht = b.kind==='exit'?19: b.kind==='shop'||b.kind==='market'?42:54;
   const colors = {
     home:['#8fa5af','#567b8c','#3a596e'], shop:['#deb784','#a77261','#865455'], exit:['#9ac9bc','#4d827c','#376560'],
-    humanHome:['#bfa7b4','#796b92','#6a587c'],market:['#d7a58f','#9d665d','#80535a'],warehouse:['#8b9ca5','#526b7d','#3e5667'],lab:['#b1b3d8','#7978b0','#535483']
+    humanHome:['#bfa7b4','#796b92','#6a587c'],market:['#d7a58f','#9d665d','#80535a'],warehouse:['#8b9ca5','#526b7d','#3e5667'],clinic:['#d0e0e0','#85a9a1','#648d8c'],cafe:['#efb783','#a77652','#815c49'],lab:['#b1b3d8','#7978b0','#535483']
   };
   const [roof,right,left]=colors[b.kind]??colors.home;
   polygon(ctx,[[l.x,l.y],[d.x,d.y],[d.x,d.y-ht],[l.x,l.y-ht]],right,'#223846',1.5);
@@ -36,6 +36,10 @@ function buildingShape(ctx,b,connected=true) {
     const wx=(r.x+d.x)/2,wy=(r.y+d.y)/2;
     polygon(ctx,[[wx-7,wy-ht*0.54],[wx+1,wy-ht*0.54-4],[wx+1,wy-ht*0.54+4],[wx-7,wy-ht*0.54+8]],'#d5dbc5');
   }
+  // Tile-based pixel windows and roof ornaments add visual identity without asset downloads.
+  const decorations=b.kind==='clinic'?3:b.kind==='market'||b.kind==='cafe'?2:1;
+  ctx.fillStyle=b.kind==='clinic'?'#e8fff5':'#ffd68a';
+  for(let i=0;i<decorations;i++){const f=(i+1)/(decorations+1);const fx=l.x+(d.x-l.x)*f,fy=l.y+(d.y-l.y)*f-ht*.42;ctx.fillRect(Math.round(fx)-3,Math.round(fy),6,5);}
   if(b.kind==='exit') {
     const cx=(a.x+d.x)/2,cy=(a.y+d.y)/2 - ht - 1;
     ctx.fillStyle='#243f48'; ctx.fillRect(cx-9,cy-4,18,8); ctx.fillStyle='#d7f3c1';ctx.fillRect(cx-4,cy-3,8,6);
@@ -44,7 +48,7 @@ function buildingShape(ctx,b,connected=true) {
   const cx=(a.x+d.x)/2, cy=(a.y+d.y)/2-ht-14;
   ctx.fillStyle='#223d49';ctx.beginPath();ctx.arc(cx,cy,11,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#f8e9b0';ctx.font='bold 13px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(connected===false?'!':(({home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',lab:'⚗'})[b.kind]??'•'),cx,cy);
+  ctx.fillText(connected===false?'!':(({home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'})[b.kind]??'•'),cx,cy);
   if(connected===false){ctx.strokeStyle='#f4a799';ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,13,0,Math.PI*2);ctx.stroke();}
 }
 function zombie(ctx, x,y,t,kind=0) {
@@ -55,6 +59,9 @@ function zombie(ctx, x,y,t,kind=0) {
   ctx.fillStyle='#465764';ctx.fillRect(x-6,y+bob,5,7);ctx.fillRect(x+1,y+bob,5,7);
   ctx.fillStyle='#263d41';ctx.fillRect(x-4,y-8+bob,3,3);ctx.fillRect(x+3,y-8+bob,3,3);
   ctx.fillStyle='#d5d7b8';ctx.fillRect(x-2,y-2+bob,5,2);
+  ctx.fillStyle='#576e62';ctx.fillRect(x-7,y-10+bob,2,5);ctx.fillRect(x+5,y-10+bob,2,5);
+  ctx.fillStyle='#c0d7c4';ctx.fillRect(x-5,y-11+bob,3,2);ctx.fillStyle='#233c3f';ctx.fillRect(x-3,y+7+bob,4,2);ctx.fillRect(x+3,y+7+bob,4,2);
+  ctx.fillStyle='#a34d5b';ctx.fillRect(x-6,y-1+bob,3,3);
 }
 export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize, game, placement=null) {
   const {width,height}=renderSize, p=PALETTES[world.id];
@@ -89,6 +96,12 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
     }
   }
   // Residents are projected from the deterministic sim state on both layers.
+  if(world.id==='surface'){
+    const count=Math.min(14,Math.max(2,Math.round((world.humanCount??34)/6)));
+    for(let i=0;i<count;i++){const x=(i*7+3)%MAP_SIZE,y=(i*11+8)%MAP_SIZE;if(world.buildings.some(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h))continue;
+      const p=tileToWorld(x,y),step=Math.sin(elapsedSeconds*1.2+i)*3;ctx.fillStyle='#ddba9b';ctx.fillRect(p.x-3,p.y-12+step,7,7);ctx.fillStyle=['#a3c3dc','#e3ac99','#9cb5a2'][i%3];ctx.fillRect(p.x-4,p.y-5+step,9,8);ctx.fillStyle='#21343f';ctx.fillRect(p.x-3,p.y+3+step,3,5);ctx.fillRect(p.x+2,p.y+3+step,3,5);
+    }
+  }
   if(game){
     for(const r of visibleResidents(game,world.id)){
       const c=tileToWorld(r.x,r.y);
@@ -101,5 +114,5 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   ctx.restore();
   // Informational drawing label; not counted as simulation.
   ctx.fillStyle='rgba(10,28,38,.78)';ctx.fillRect(12,12,144,26);
-  ctx.fillStyle='#d7e9e8';ctx.font='600 11px system-ui';ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillText('16 × 16  •  Phase 2',24,25);
+  ctx.fillStyle='#d7e9e8';ctx.font='600 11px system-ui';ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillText(`${MAP_SIZE} × ${MAP_SIZE} · ゾンビタウン`,24,25);
 }
