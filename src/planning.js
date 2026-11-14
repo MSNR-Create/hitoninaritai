@@ -8,8 +8,8 @@ export function planCorridor(world,start,end,money){
  if(!start||!end||![start,end].every(p=>Number.isInteger(p.x)&&Number.isInteger(p.y)&&within(p.x,p.y)))return {ok:false,reason:'マップ上の始点と終点を指定してください'};
  const valid=(p)=>!world.closed.has(k(p.x,p.y))&&!occupied(world,p.x,p.y);
  if(!valid(start)||!valid(end))return {ok:false,reason:'建物・閉鎖区画には通路を通せません'};
- const isNetwork=p=>world.paths.has(k(p.x,p.y))||world.buildings.some(b=>b.kind==='exit'&&[[p.x-1,p.y],[p.x+1,p.y],[p.x,p.y-1],[p.x,p.y+1]].some(([x,y])=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h));
- if(!isNetwork(start))return {ok:false,reason:'始点は既存の通路または出口の隣にしてください'};
+ // Unconnected corridors are allowed as an early construction stage.
+ // Facility activity is still gated by connectivity to the underground exit.
  const costs=new Map([[k(start.x,start.y),0]]),prev=new Map(),open=[start],visited=new Set();
  while(open.length){open.sort((a,b)=>(costs.get(k(a.x,a.y))-costs.get(k(b.x,b.y)))||(a.y-b.y)||(a.x-b.x));const p=open.shift(),pk=k(p.x,p.y);if(visited.has(pk))continue;visited.add(pk);if(p.x===end.x&&p.y===end.y)break;
   for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]){const n={x:p.x+dx,y:p.y+dy};if(!within(n.x,n.y)||!valid(n))continue;const nk=k(n.x,n.y),price=world.paths.has(nk)?0:5,score=costs.get(pk)+price+0.001;
