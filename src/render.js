@@ -1,4 +1,5 @@
 import { visibleResidents } from './agent.js';
+import {streetTileKind,vehiclesAt,pedestriansAt} from './surface-city.js';
 import { MAP_SIZE, TILE_HEIGHT, TILE_WIDTH, tileToWorld, projectedTile, projectedFootprint, worldToView } from './geometry.js';
 
 const PALETTES = {
@@ -61,6 +62,27 @@ function buildingShape(ctx,b,connected=true,rotation=0) {
   ctx.fillStyle='#f8e9b0';ctx.font='bold 13px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText(connected===false?'!':(({home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'})[b.kind]??'•'),px,py);
 }
+function carSprite(ctx,pt,axis,color){
+ // Compact isometric traffic sprite: body, roof, windscreen, headlamps and tires.
+ const major=axis==='x'?[15,7]:[-15,7];
+ const perp=axis==='x'?[8,-4]:[8,4];
+ const x=pt.x,y=pt.y-5;
+ const center=(a,b)=>[x+a*major[0]+b*perp[0],y+a*major[1]+b*perp[1]];
+ const face=[center(-.6,-.65),center(.6,-.65),center(.6,.65),center(-.6,.65)];
+ polygon(ctx,face,'#142936','#192d36',2);
+ const body=[center(-.72,-.5),center(.72,-.5),center(.72,.5),center(-.72,.5)];
+ polygon(ctx,body,color,'#d7d6bb',1.4);
+ const roof=[center(-.25,-.34),center(.35,-.34),center(.35,.34),center(-.25,.34)];
+ polygon(ctx,roof,'#345465','#d1e5dc',1);
+ ctx.fillStyle='#fff1bc';for(const t of [-.33,.33]){const c=center(.69,t);ctx.fillRect(c[0]-2,c[1]-2,3,3);}
+}
+function streetPerson(ctx,pt,index,seconds){
+ const x=Math.round(pt.x),y=Math.round(pt.y+Math.sin(seconds*4+index)*1.5);
+ ctx.fillStyle='#14232a80';ctx.fillRect(x-5,y+5,11,3);
+ ctx.fillStyle=['#f0c5a0','#ad816c','#d9b69b','#a87969'][index%4];ctx.fillRect(x-3,y-12,7,7);
+ ctx.fillStyle=['#93acc9','#cd8f76','#b8ad7b','#8daea0','#c8a7ae'][index%5];ctx.fillRect(x-4,y-5,9,9);
+ ctx.fillStyle='#273743';ctx.fillRect(x-4,y+4,3,5);ctx.fillRect(x+2,y+4,3,5);
+}
 function zombie(ctx, x,y,t,kind=0) {
   const bob=Math.sin(t*2+kind)*1.3;
   ctx.fillStyle='rgba(0,0,0,.26)';ctx.beginPath();ctx.ellipse(x,y+7,9,4,0,0,Math.PI*2);ctx.fill();
@@ -87,8 +109,18 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       const y=diagonal-x;if(y<0||y>=MAP_SIZE)continue;
       const {x:wx,y:wy}=tileCenter(x,y,view.rotation??0), k=`${x},${y}`;
       const closed=world.closed.has(k), path=world.paths.has(k), accent=world.accents.has(k);
-      const floor= closed?p.closed:path?p.path:accent?'#60736e':((x+y)%2?p.ground1:p.ground2);
-      diamond(ctx,wx,wy,floor,p.seam);
+      const tileKind=world.id==='surface'?streetTileKind(world,x,y):'underground';
+      const floor=world.id==='surface'?(tileKind==='road'?'#39474d':tileKind==='sidewalk'?'#86918c':accent?'#678476':((x+y)%2?p.ground1:p.ground2)):closed?p.closed:path?p.path:accent?'#60736e':((x+y)%2?p.ground1:p.ground2);
+      diamond(ctx,wx,wy,floor,world.id==='surface'?(tileKind==='road'?'#576d72':tileKind==='sidewalk'?'#b8bdb0':p.seam):p.seam);
+      if(world.id==='surface'&&tileKind==='road'){
+        // Road lanes; intersection has a bright crossing on every fourth block.
+        const junction=[8,9,15,16].includes(x)&&[8,9,15,16].includes(y);
+        if(junction){ctx.strokeStyle='#dfdac3';ctx.lineWidth=2;for(let z=-10;z<=10;z+=7){ctx.beginPath();ctx.moveTo(wx+z-4,wy-7);ctx.lineTo(wx+z+4,wy-3);ctx.stroke();}}
+        else if((x+y)%3===0){ctx.strokeStyle='#d7cfac';ctx.lineWidth=1.6;ctx.beginPath();if([8,9,15,16].includes(x)){ctx.moveTo(wx-9,wy-5);ctx.lineTo(wx+9,wy+4);}else{ctx.moveTo(wx+9,wy-5);ctx.lineTo(wx-9,wy+4);}ctx.stroke();}
+      }
+      if(world.id==='surface'&&tileKind==='sidewalk'&&((x*7+y*3)%11===0)){
+        ctx.fillStyle='#355d50';ctx.fillRect(wx-3,wy-12,7,9);ctx.fillStyle='#618b70';ctx.fillRect(wx-8,wy-20,15,11);ctx.fillStyle='#8cb398';ctx.fillRect(wx-5,wy-23,9,5);
+      }
       if(closed){ctx.strokeStyle='#40535c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(wx-10,wy-5);ctx.lineTo(wx+10,wy+5);ctx.moveTo(wx+10,wy-5);ctx.lineTo(wx-10,wy+5);ctx.stroke();}
       if(selected?.x===x&&selected?.y===y){diamond(ctx,wx,wy,'rgba(242,228,135,.18)',p.selected);}
     }
@@ -107,15 +139,20 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       const pt=projectedTile(placement.x,placement.y,view.rotation??0);ctx.fillText(`${placement.w}×${placement.h}`,pt.x,pt.y-30);
     }
   }
-  // Residents are projected from the deterministic sim state on both layers.
+  // Street life: separate pedestrian and vehicle streams, tied to human population.
   if(world.id==='surface'){
-    const count=Math.min(14,Math.max(2,Math.round((world.humanCount??34)/6)));
-    for(let i=0;i<count;i++){const x=(i*7+3)%MAP_SIZE,y=(i*11+8)%MAP_SIZE;if(world.buildings.some(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h))continue;
-      const p=projectedTile(x,y,view.rotation??0),step=Math.sin(elapsedSeconds*1.2+i)*3;ctx.fillStyle='#ddba9b';ctx.fillRect(p.x-3,p.y-12+step,7,7);ctx.fillStyle=['#a3c3dc','#e3ac99','#9cb5a2'][i%3];ctx.fillRect(p.x-4,p.y-5+step,9,8);ctx.fillStyle='#21343f';ctx.fillRect(p.x-3,p.y+3+step,3,5);ctx.fillRect(p.x+2,p.y+3+step,3,5);
+    const humanCount=world.humanCount??34,trust=world.humanTrust??55;
+    for(const v of vehiclesAt(elapsedSeconds,humanCount,trust)){
+      const pt=projectedTile(v.x,v.y,view.rotation??0);
+      carSprite(ctx,pt,(view.rotation??0)%2===0?v.axis:(v.axis==='x'?'y':'x'),v.color);
+    }
+    for(const walker of pedestriansAt(elapsedSeconds,humanCount)){
+      const t=projectedTile(walker.x,walker.y,view.rotation??0);
+      streetPerson(ctx,t,walker.id,elapsedSeconds);
     }
   }
   if(game){
-    for(const r of visibleResidents(game,world.id)){
+    for(const r of visibleResidents(game,world.id,world)){
       const c=projectedTile(r.x,r.y,view.rotation??0);
       zombie(ctx,c.x,c.y+7,elapsedSeconds,r.index);
       if(r.status==='出勤中'||r.status==='帰還中'){
