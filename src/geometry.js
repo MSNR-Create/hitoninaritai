@@ -13,6 +13,22 @@ export function worldToTile(wx, wy) {
   return { x: Math.floor(tx + 0.5), y: Math.floor(ty + 0.5) };
 }
 
+/** Quarter-turns of the tile grid, not a rotation of the screen pixels. */
+export function rotateTile(x,y,rotation=0,size=MAP_SIZE){
+  switch(((rotation%4)+4)%4){
+    case 1:return {x:size-1-y,y:x};
+    case 2:return {x:size-1-x,y:size-1-y};
+    case 3:return {x:y,y:size-1-x};
+    default:return {x,y};
+  }
+}
+export function unrotateTile(x,y,rotation=0,size=MAP_SIZE){return rotateTile(x,y,4-rotation,size);}
+export function projectedTile(x,y,rotation=0){const t=rotateTile(x,y,rotation);return tileToWorld(t.x,t.y);}
+export function projectedFootprint(b,rotation=0){
+  const tiles=[rotateTile(b.x,b.y,rotation),rotateTile(b.x+b.w-1,b.y,rotation),rotateTile(b.x,b.y+b.h-1,rotation),rotateTile(b.x+b.w-1,b.y+b.h-1,rotation)];
+  return {x:Math.min(...tiles.map(t=>t.x)),y:Math.min(...tiles.map(t=>t.y)),w:Math.max(...tiles.map(t=>t.x))-Math.min(...tiles.map(t=>t.x))+1,h:Math.max(...tiles.map(t=>t.y))-Math.min(...tiles.map(t=>t.y))+1};
+}
+
 export function inBounds(x, y, size = MAP_SIZE) {
   return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < size && y >= 0 && y < size;
 }
@@ -28,7 +44,8 @@ export function worldToView(wx, wy, view) {
 export function hitTile(px, py, view) {
   const p = viewToWorld(px, py, view);
   const t = worldToTile(p.x, p.y);
-  return inBounds(t.x, t.y) ? t : null;
+  const actual=unrotateTile(t.x,t.y,view.rotation??0);
+  return inBounds(actual.x,actual.y) ? actual : null;
 }
 
 export function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
