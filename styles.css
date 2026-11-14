@@ -159,3 +159,18 @@ body { position: fixed; inset: 0; }
 .property-close{width:100%;background:#375461;color:#eaf5ec}
 .surface-summary{border:1px solid #527a75;border-radius:8px;padding:8px;background:#1b4145;color:#ceeedb!important}
 @media(max-width:520px){.map-sheet[data-panel="build"]{height:min(242px,55%)}.property-dialog-actions button{font-size:13px}}
+
+/* v1.4: marketplace is a scrollable management sheet, never grows the page. */
+.market-subhead{display:flex;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #54737a;margin:14px 0 9px;padding-bottom:6px}
+.market-subhead h3{font-size:13px;margin:0}.market-subhead button{padding:6px 9px;font-size:12px}
+.market-stat{font-size:12px;color:#bce4ce;line-height:1.7;padding:8px;border:1px solid #51777b;border-radius:9px}
+.market-hint{font-size:12px;color:#d6e7dd}.market-field{display:flex;gap:9px;align-items:center;font-size:12px;margin:7px 0}
+.market-field select,.market-controls select,.market-controls input,.market-item select,.market-listing input{min-width:0;background:#183b48;border:1px solid #64838a;border-radius:8px;color:#fff;padding:7px}
+.market-catalog,.market-entries{display:grid;gap:6px}.market-item,.market-listing{background:#173a48;border:1px solid #466b74;border-radius:9px;padding:8px;min-width:0}
+.market-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(78px,105px) auto;gap:6px;align-items:center}
+.market-item-info{min-width:0;font-size:12px}.market-item-info small{display:block;color:#b9cfce;margin-top:4px;font-size:10px;line-height:1.5}
+.market-item button,.market-listing button{padding:7px 9px;font-size:11px;white-space:normal}
+.market-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.market-controls label{font-size:11px;display:grid;gap:4px}.market-controls select,.market-controls input{width:100%}
+.market-listing-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:5px;font-size:12px;margin-bottom:7px}.market-listing-head small{color:#aecbcc}.market-listing p{font-size:12px}.market-listing-price{width:80px}
+.market-history-row{font-size:11px;background:#183945;padding:7px;border-radius:7px}
+@media(max-width:390px){.market-item{grid-template-columns:minmax(0,1fr) 92px}.market-item button{grid-column:1/-1}.market-controls{grid-template-columns:1fr 1fr}}
