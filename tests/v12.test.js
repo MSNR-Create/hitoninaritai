@@ -1,0 +1,18 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {makeWorlds} from '../src/world.js';
+import {MAP_SIZE,inBounds} from '../src/geometry.js';
+import {demolitionTarget,applyDemolition} from '../src/demolition.js';
+import {applyConstruction,connectedFacilities} from '../src/construction.js';
+import {initialSurfaceEconomy,advanceSurfaceEconomy,tradeProperty,PROPERTY_ROLES} from '../src/surface-economy.js';
+import {RENTALS} from '../src/rentals.js';
+import {addTransaction,createLedger} from '../src/finance.js';
+import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+test('expanded map is 24x24 with new facilities',()=>{const w=makeWorlds();assert.equal(MAP_SIZE,24);assert.ok(inBounds(23,23));assert.ok(!inBounds(24,23));assert.ok(w.underground.zones.some(z=>z.id==='eastward'));assert.equal(w.surface.buildings.length,7);});
+test('initial facilities are protected from demolition',()=>{let w=makeWorlds().underground;assert.equal(demolitionTarget(w,4,5).ok,false);assert.equal(demolitionTarget(w,8,8).type,'path');});
+test('removing a path updates 4-way connectivity',()=>{let w=makeWorlds().underground;const plan=demolitionTarget(w,8,8);let r=applyDemolition(w,plan);assert.ok(r.ok);assert.ok(!r.world.paths.has('8,8'));assert.ok(w.paths.has('8,8'));assert.ok(r.world.connectivity);assert.equal(applyDemolition(r.world,plan).ok,false);});
+test('owned building can be removed but protected exit cannot',()=>{let w=makeWorlds().underground;const b=applyConstruction(w,{type:'build',kind:'lab',x:6,y:10},300);assert.ok(b.ok);const target=demolitionTarget(b.world,6,10);assert.ok(target.ok);assert.ok(applyDemolition(b.world,target).world.buildings.length===w.buildings.length);assert.equal(demolitionTarget(w,7,2).ok,false);});
+test('human economy grows in peaceful town and drops in hostile one',()=>{const e=initialSurfaceEconomy();const good=advanceSurfaceEconomy(e,{alert:5},['apartment','market'],[],1);const bad=advanceSurfaceEconomy(e,{alert:95},['apartment','market'],[],1);assert.ok(good.trust>bad.trust);assert.ok(good.income>bad.income);assert.ok(good.visitors>bad.visitors);});
+test('lease out and sell are mutually exclusive',()=>{const e=initialSurfaceEconomy();const leased=tradeProperty(e,['market'],[],'market','lease',500);assert.ok(leased.ok);assert.equal(tradeProperty(leased.surface,['market'],[],'market','sell',500).ok,false);const unleased=tradeProperty(leased.surface,['market'],[],'market','unlease',500);const sale=tradeProperty(unleased.surface,['market'],[],'market','sell',500);assert.ok(sale.ok);assert.equal(sale.money,500+Math.floor(RENTALS.find(p=>p.id==='market').purchase*.7));});
+test('new cash categories reconcile',()=>{let l=createLedger(300,1);l=addTransaction(l,{day:1,amount:60,category:'地上事業売上'});l=addTransaction(l,{day:1,amount:-17,category:'地上施設維持費'});assert.equal(l.transactions.reduce((a,t)=>a+t.amount,300),343);});
+test('construction freezes camera gestures and property opens contextual dialog',()=>{const main=read('src/main.js'),html=read('index.html');assert.match(main,/g\.moved&&tool==='inspect'/);assert.match(main,/buildCorridorDrag\(begin,tile\)/);assert.match(main,/openPropertyDialog\(tile\)/);assert.match(html,/id="propertyDialog"/);assert.match(html,/data-tool="demolish"/);});
