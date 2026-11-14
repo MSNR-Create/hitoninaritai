@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><meta name="theme-color" content="#142b38"/>
-<title>ゾンビだって暮らしたい！ — v0.8 操作性改善・研究ツリー</title><link rel="stylesheet" href="./styles.css?v=0801"/></head>
+<title>ゾンビだって暮らしたい！ — v0.9 マップ重ね合わせUI・収支分析</title><link rel="stylesheet" href="./styles.css?v=0901"/></head>
 <body>
 <div class="app-shell">
 <header class="topbar">
@@ -32,8 +32,8 @@
 </main>
 <nav id="bottomMenu" class="bottom-menu" aria-label="ゲームのメニュー"><button data-nav="map" class="active">🗺️<span>マップ</span></button><button data-nav="jobs">🧟<span>仕事</span></button><button data-nav="build">🔨<span>建設</span></button><button data-nav="supply">🍖<span>配給</span></button><button data-nav="research">🧪<span>研究</span></button><button data-nav="more">☰<span>その他</span></button></nav><footer><span class="status-dot"></span> Phase 2 · 地下開発 <span class="footer-right">セーブ・オフライン対応（実機確認待ち）</span></footer>
 </div>
-<dialog id="statsDialog"><h2 id="statsTitle">ステータス詳細</h2><p id="statsDetail"></p><button id="statsClose">閉じる</button></dialog>
+<dialog id="statsDialog"><h2 id="statsTitle">ステータス詳細</h2><p id="statsDetail" style="white-space:pre-line"></p><div id="financeView" hidden><p id="financeHeadline" class="finance-headline"></p><p id="financeYesterday"></p><canvas id="financeChart" width="310" height="135" aria-label="直近7日間の資金残高グラフ"></canvas><p id="financeToday"></p><h3>前日の取引明細</h3><ul id="financeTransactions" class="finance-transactions"></ul><small>記録はv0.9以降の取引から蓄積されます。</small></div><button id="statsClose">閉じる</button></dialog>
 <dialog id="moreDialog"><h2>その他のメニュー</h2><div class="more-actions"><button data-more="market">📦 フリマ</button><button data-more="social">🤝 人間関係</button><button data-more="property">🏙️ 地上物件</button><button data-more="settings">⚙️ 設定・セーブ</button></div><button id="moreClose">閉じる</button></dialog>
 <dialog id="helpDialog"><h2>操作ガイド</h2><p>マップをタップするとタイルや施設を選択できます。ドラッグで移動、2本指で拡大・縮小。右側の＋/−でズームし、⌖で初期位置に戻ります。</p><p>地上／地下を切り替えても各階層の選択位置は保持します。マップ移動は境界で止まります。地下マップの閉鎖区画を選択して開放、空きタイルを選択して通路・住居・配給所・研究室を建設できます。建築費用は資金から引かれます。保存はIndexedDBに対応しています。</p><button id="closeHelp">閉じる</button></dialog>
 <dialog id="eventDialog" class="event-dialog" aria-labelledby="eventTitle"><div class="event-head"><span id="eventDay">第1日</span><span id="eventCount">残り0件</span></div><h2 id="eventTitle">イベント</h2><canvas id="eventCanvas" width="320" height="170" role="img" aria-label="イベントのドット絵アニメーション"></canvas><p id="eventNarrative"></p><p id="eventReason" class="event-reason"></p><button id="eventNext">確認して続ける</button></dialog>
-<link rel="manifest" href="./manifest.webmanifest"/><script type="module" src="./src/main.js?v=0801"></script></body></html>
+<link rel="manifest" href="./manifest.webmanifest"/><script type="module" src="./src/main.js?v=0901"></script></body></html>
