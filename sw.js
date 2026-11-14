@@ -1,1 +1,13 @@
-const CACHE='zombie-colony-rc-1';const ASSETS=['./','./index.html','./styles.css','./manifest.webmanifest','./icon.svg','./src/main.js','./src/geometry.js','./src/world.js','./src/render.js','./src/camera.js','./src/simulation.js','./src/agent.js','./src/construction.js','./src/planning.js','./src/resale.js','./src/rentals.js','./src/colony.js','./src/social.js','./src/persistence.js','./src/event-scenes.js'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('zombie-colony-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==self.location.origin)return;e.respondWith(caches.match(e.request).then(v=>v||fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));}return r;})))});
+const CACHE='zombie-colony-v08-2';
+const ASSETS=['./','./index.html','./styles.css','./manifest.webmanifest','./icon.svg','./src/main.js','./src/geometry.js','./src/world.js','./src/render.js','./src/camera.js','./src/simulation.js','./src/agent.js','./src/construction.js','./src/planning.js','./src/resale.js','./src/rentals.js','./src/property.js','./src/placement-interaction.js','./src/colony.js','./src/social.js','./src/persistence.js','./src/event-scenes.js'];
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('zombie-colony-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',event=>{
+ const req=event.request,url=new URL(req.url);
+ if(req.method!=='GET'||url.origin!==self.location.origin)return;
+ if(req.mode==='navigate'){
+  event.respondWith(fetch(req).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));}return response;}).catch(()=>caches.match('./index.html')));
+  return;
+ }
+ event.respondWith(caches.match(req).then(saved=>saved||fetch(req).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(req,copy));}return response;})));
+});
