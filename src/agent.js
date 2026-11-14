@@ -12,15 +12,15 @@ export function residentVisual(game,resident,world=null){
   const home=homeBuilding?[homeBuilding.x+.45+(index%3)*Math.min(.65,(homeBuilding.w-.7)/3),homeBuilding.y+.4+(index%2)*Math.min(.7,(homeBuilding.h-.6)/2)]:HOMES[index%HOMES.length];
   const clock=game.tick%120;
   // During the day: return from previous shift, rest at home and socialize.
-  if(resident.strikeDays>0)return {layer:'underground',x:home[0],y:home[1],status:'ストライキ中',reason:'疲労または配給不足のため勤務を拒否。休息と配給で回復します'};
+  if(resident.strikeDays>0)return {layer:'underground',x:home[0],y:home[1],status:'ストライキ中',activity:'strike',reason:'疲労または配給不足のため勤務を拒否。休息と配給で回復します'};
   if(clock<60){
     if(clock<13&&game.day>1){return {layer:'underground',...along(HUB,home,clock/12),status:'帰宅中',reason:'夜勤を終え、共同住居へ戻っています'};}
-    if(clock<43){return {layer:'underground',x:home[0],y:home[1],status:'休息中',reason:'疲労を回復するため住居で休んでいます'};}
+    if(clock<43){const sleepPulse=Math.sin((clock+index*3)*.2)*.035;return {layer:'underground',x:home[0]+sleepPulse,y:home[1],status:'休息中',activity:'sleep',reason:'疲労を回復するため住居で休んでいます'};}
     const move=Math.sin((clock-43)/17*Math.PI)*.85;
-    return {layer:'underground',x:home[0]+move,y:home[1]+move*.25,status:'地下で生活',reason:'次の勤務まで地下で過ごしています'};
+    return {layer:'underground',x:home[0]+move,y:home[1]+move*.25,status:'地下で生活',activity:'walk',reason:'次の勤務まで地下で過ごしています'};
   }
-  if(resident.activeJob==='research'){const lab=world?.buildings?.find(b=>b.kind==='lab');return {layer:'underground',x:lab?lab.x+lab.w/2:9.1,y:lab?lab.y+lab.h/2:6.5,status:'研究中',reason:'地下研究室で衝動抑制を研究しています'};}
-  if(resident.activeJob==='rest')return {layer:'underground',x:home[0],y:home[1],status:'休息中',reason:resident.fatigue>=85?'疲労が高いため夜勤より休息を優先':'休息を指示されているため地下にいます'};
+  if(resident.activeJob==='research'){const lab=world?.buildings?.find(b=>b.kind==='lab');return {layer:'underground',x:lab?lab.x+lab.w/2:9.1,y:lab?lab.y+lab.h/2:6.5,status:'研究中',activity:'research',reason:'地下研究室で衝動抑制を研究しています'};}
+  if(resident.activeJob==='rest')return {layer:'underground',x:home[0],y:home[1],status:'休息中',activity:'sleep',reason:resident.fatigue>=85?'疲労が高いため夜勤より休息を優先':'休息を指示されているため地下にいます'};
   const night=clock-60;
   if(night<14)return {layer:'underground',...along(home,HUB,night/13),status:'出勤中',reason:'割り当てられた夜勤へ向かっています'};
   if(night<20)return {layer:'surface',...along(SURFACE_HUB,[7.9,9.2],(night-14)/5),status:'地上へ移動',reason:'地下の出口から人間社会へ出ています'};
