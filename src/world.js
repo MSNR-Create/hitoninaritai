@@ -80,7 +80,7 @@ export function makeWorlds() {
 
 export function buildingAt(world, x, y) {
   if (!inBounds(x, y, MAP_SIZE)) return null;
-  return world.buildings.find(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) ?? null;
+  return [...world.buildings,...(world.cityBuildings??[])].find(b => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) ?? null;
 }
 export function describeTile(world, x, y) {
   if (!inBounds(x, y)) return null;
