@@ -80,7 +80,7 @@ function wallSegment(ctx,P,Q,H,color,windowed){
 /** Returns {parts:[{depth,sub,draw}], overlay:fn}. depth = rotated tile x+y. */
 export function buildingParts(b,connected=true,rotation=0){
   const [floor,wall,trim]=BUILDING_COLORS[b.kind]??BUILDING_COLORS.home;
-  const H=b.kind==='exit'?10:22, R=rotatedRect(b,rotation);
+  const H=b.kind==='exit'?4:6, R=rotatedRect(b,rotation);
   const a=gp(R.x,R.y),r=gp(R.x+R.w,R.y),d=gp(R.x+R.w,R.y+R.h),l=gp(R.x,R.y+R.h);
   const parts=[];
   parts.push({depth:R.x+R.y-1,sub:-1,draw:ctx=>{
@@ -93,11 +93,11 @@ export function buildingParts(b,connected=true,rotation=0){
     ctx.restore();polygon(ctx,fp,null,'#f1eed7',1.4);
   }});
   // back walls: north edge (y=R.y) and west edge (x=R.x) in rotated space
-  for(let i=0;i<R.w;i++){const P=gp(R.x+i,R.y),Q=gp(R.x+i+1,R.y);parts.push({depth:R.x+i+R.y-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,wall,b.kind!=='exit'&&i===1)});}
-  for(let j=0;j<R.h;j++){const P=gp(R.x,R.y+j),Q=gp(R.x,R.y+j+1);parts.push({depth:R.x+R.y+j-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,trim,b.kind!=='exit'&&j===1)});}
+  for(let i=0;i<R.w;i++){const P=gp(R.x+i,R.y),Q=gp(R.x+i+1,R.y);parts.push({depth:R.x+i+R.y-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,wall,false)});}
+  for(let j=0;j<R.h;j++){const P=gp(R.x,R.y+j),Q=gp(R.x,R.y+j+1);parts.push({depth:R.x+R.y+j-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,trim,false)});}
   parts.push({depth:R.x+R.y-.5,sub:0.5,draw:ctx=>{ctx.strokeStyle='#293f4a';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.x,a.y-H-1.5);ctx.stroke();}});
-  for(const [name,lx,ly] of ROOM_LAYOUT[b.kind]??[]){
-    if(lx>=b.w||ly>=b.h)continue;
+  for(const [name,lx0,ly0] of ROOM_LAYOUT[b.kind]??[]){
+    const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];if(lx>=b.w||ly>=b.h)continue;
     const q=rotateGridPoint(b.x+lx+.5,b.y+ly+.5,rotation),pt=tileToWorld(q.x-.5,q.y-.5);
     parts.push({depth:q.x+q.y-1,sub:1,draw:ctx=>blit(ctx,furniture(name),pt.x,pt.y+6,rotation%2===1)});
   }
@@ -190,6 +190,23 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       list.push({depth:depthOf(v.x,v.y),sub:2,draw:ctx=>{ctx.save();ctx.translate(pt.x,pt.y);ctx.scale(1.6,1.6);ctx.translate(-pt.x,-pt.y);carSprite(ctx,pt,rot%2===0?v.axis:(v.axis==='x'?'y':'x'),v.color);ctx.restore();}});}
     for(const walker of pedestriansAt(elapsedSeconds,humanCount)){const t=projectedTile(walker.x,walker.y,rot);list.push({depth:depthOf(walker.x,walker.y),sub:2,draw:ctx=>streetPerson(ctx,t,walker.id,elapsedSeconds)});}
   }
+  // v2.2 underground = solid earth. Every undug tile (not a corridor, not under a facility) is a raised
+  // block; corridors and rooms are dug out below it, so tunnel walls hide the feet of passing residents.
+  const EARTH=10;
+  if(world.id==='underground'){
+    const dug=new Set(world.paths);for(const b of world.buildings)for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)dug.add(x+','+y);
+    const rk=new Set();const blocks=[];
+    for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){if(dug.has(x+','+y))continue;const t=rotateTile(x,y,rot);rk.add(t.x+','+t.y);blocks.push({x,y,t,closed:world.closed.has(x+','+y)});}
+    for(const bl of blocks){const c=projectedTile(bl.x,bl.y,rot),v=Math.floor(tileHash(bl.x,bl.y)*4);
+      const frontL=!rk.has(bl.t.x+','+(bl.t.y+1)),frontR=!rk.has((bl.t.x+1)+','+bl.t.y);
+      const top=bl.closed?'#4a3c36':'#9a7e62',side=bl.closed?'#2e2420':'#6a523e',side2=bl.closed?'#3a2e28':'#80664c';
+      list.push({depth:bl.t.x+bl.t.y,sub:-1.5,draw:ctx=>{
+        if(frontL)polygon(ctx,[[c.x-32,c.y-EARTH],[c.x,c.y+16-EARTH],[c.x,c.y+16],[c.x-32,c.y]],side2,null);
+        if(frontR)polygon(ctx,[[c.x,c.y+16-EARTH],[c.x+32,c.y-EARTH],[c.x+32,c.y],[c.x,c.y+16]],side,null);
+        if(!drawTile(ctx,c.x,c.y-EARTH,top,bl.closed?'rubble':'noise',v))polygon(ctx,[[c.x,c.y-16-EARTH],[c.x+32,c.y-EARTH],[c.x,c.y+16-EARTH],[c.x-32,c.y-EARTH]],top,null);
+        if(frontL||frontR){ctx.strokeStyle='rgba(30,20,14,.55)';ctx.lineWidth=1;ctx.beginPath();if(frontL){ctx.moveTo(c.x-32,c.y-EARTH);ctx.lineTo(c.x,c.y+16-EARTH);}else ctx.moveTo(c.x,c.y+16-EARTH);if(frontR)ctx.lineTo(c.x+32,c.y-EARTH);ctx.stroke();}
+      }});}
+  }
   // scenery props on empty lots / cave floor
   const occupied=new Set();for(const b of [...world.buildings,...(world.cityBuildings??[])])for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)occupied.add(x+','+y);
   if(world.id==='surface')for(const l of world.lotDefs??[]){for(let x=l.x;x<l.x+l.w;x++)for(let y=l.y;y<l.y+l.h;y++)occupied.add(x+','+y);
@@ -203,7 +220,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       if(kind==='lot')name=h<.16?'tree':h<.24?'flowers':h<.3?'bush':h<.32?'bench':null;
       else if(kind==='sidewalk'&&(x*7+y*3)%9===0)name='lamp';}
     else if(!world.paths.has(k)){name=world.closed.has(k)?(h<.08?'crystal':null):h<.05?'mushroom':h<.08?'lantern':h<.1?'crystal':null;}
-    if(!name)continue;const pt=projectedTile(x,y,rot),dx=(h*7%1-.5)*12;
+    if(!name)continue;const pt0=projectedTile(x,y,rot),pt={x:pt0.x,y:pt0.y-(world.id==='underground'?10:0)},dx=(h*7%1-.5)*12;
     list.push({depth:depthOf(x,y),sub:1.5,draw:ctx=>{ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(pt.x+dx,pt.y+4,10,4,0,0,Math.PI*2);ctx.fill();blit(ctx,prop(name),pt.x+dx,pt.y+5);
       if(name==='lantern'||name==='lamp'){const g=ctx.createRadialGradient?.(pt.x+dx,pt.y-(name==='lamp'?20:10),1,pt.x+dx,pt.y-(name==='lamp'?20:10),26);if(!g?.addColorStop)return;g.addColorStop(0,'rgba(255,230,150,.35)');g.addColorStop(1,'rgba(255,230,150,0)');ctx.fillStyle=g;ctx.fillRect(pt.x+dx-26,pt.y-46,52,52);}}});
   }

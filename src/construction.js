@@ -42,10 +42,10 @@ function footprint(world,x,y,w,h){
   }
   return null;
 }
-export function canBuild(world,kind,x,y,money){
+export function canBuild(world,kind,x,y,money,rotated=false){
   if(!Number.isInteger(x)||!Number.isInteger(y)||!BUILD_COSTS[kind])return {ok:false,reason:'建設対象が不正です'};
   if(money<BUILD_COSTS[kind])return {ok:false,reason:`資金不足（必要 ${BUILD_COSTS[kind]}G）`};
-  const [w,h]=kind==='path'?[1,1]:FACILITY_SIZES[kind];
+  const [w0,h0]=kind==='path'?[1,1]:FACILITY_SIZES[kind];const [w,h]=rotated?[h0,w0]:[w0,h0];
   const issue=footprint(world,x,y,w,h);if(issue)return {ok:false,reason:issue};
   if(kind==='path'){
     const beside=neighbors(x,y).some(([a,b])=>world.paths.has(k(a,b)));
@@ -58,7 +58,7 @@ export function canBuild(world,kind,x,y,money){
   return {ok:true,cost:BUILD_COSTS[kind]};
 }
 export function applyConstruction(world,action,money){
-  const validation=action.type==='unlock'?canUnlock(world,action.zoneId,money):action.type==='build'?canBuild(world,action.kind,action.x,action.y,money):{ok:false,reason:'不明な操作です'};
+  const validation=action.type==='unlock'?canUnlock(world,action.zoneId,money):action.type==='build'?canBuild(world,action.kind,action.x,action.y,money,!!action.rotated):{ok:false,reason:'不明な操作です'};
   if(!validation.ok)return {ok:false,reason:validation.reason,world,money};
   const copy={...world,closed:new Set(world.closed),paths:new Set(world.paths),buildings:world.buildings.map(b=>({...b})),zones:world.zones.map(z=>({...z}))};
   if(action.type==='unlock'){
@@ -66,9 +66,9 @@ export function applyConstruction(world,action,money){
     for(let x=z.x;x<z.x+z.w;x++)for(let y=z.y;y<z.y+z.h;y++)copy.closed.delete(k(x,y));
   }else if(action.kind==='path')copy.paths.add(k(action.x,action.y));
   else{
-    const [w,h]=FACILITY_SIZES[action.kind];
+    const [w0,h0]=FACILITY_SIZES[action.kind];const [w,h]=action.rotated?[h0,w0]:[w0,h0];
     copy.nextBuildingId=(copy.nextBuildingId??1)+1;
-    copy.buildings.push({id:`built-${copy.nextBuildingId}`,name:FACILITY_NAMES[action.kind]??action.kind,kind:action.kind,x:action.x,y:action.y,w,h,description:'通路につながると利用できます。'});
+    copy.buildings.push({id:`built-${copy.nextBuildingId}`,name:FACILITY_NAMES[action.kind]??action.kind,kind:action.kind,x:action.x,y:action.y,w,h,...(action.rotated?{rot:1}:{}),description:'通路につながると利用できます。'});
   }
   copy.connectivity=connectedFacilities(copy);
   return {ok:true,world:copy,money:money-validation.cost,cost:validation.cost};

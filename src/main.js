@@ -38,6 +38,9 @@ let colony=initialColony();
 let social=initialSocial();
 let game=initialGame(), simAccumulator=0,lastTime=null,speed=1,paused=false;
 let selectedTech=null;
+let buildRotated=false;
+function sizeOf(kind){const s0=FACILITY_SIZES[kind];return buildRotated?[s0[1],s0[0]]:s0;}
+function rotateCandidate(){if(!buildChoice)return;buildRotated=!buildRotated;const [w,h]=sizeOf(buildChoice.kind);buildChoice={...buildChoice,w,h,x:Math.min(buildChoice.x,MAP_SIZE-w),y:Math.min(buildChoice.y,MAP_SIZE-h)};const v=buildingPreview(worlds.underground,buildChoice.kind,buildChoice.x,buildChoice.y,game.money,buildRotated);status(`向きを変更：${v.w}×${v.h}・${v.ok?'設置可能。範囲内をタップで建設':'設置不可・'+v.reason}`);updatePlacement();}
 function ensureAllColonists(){game={...game,residents:game.residents.map(C.ensureColonist)};}
 ensureAllColonists();let productionLog=[],lastColonistReport=null,facilityNotes=[];
 const BUILDABLE=Object.keys(FACILITY_DEFS);
@@ -110,7 +113,7 @@ function updateConstruction(){updateBuildButtons();
 }
 function status(message){el('buildMessage').textContent=message;}
 function refreshConnectivity(){worlds.underground.connectivity=connectedFacilities(worlds.underground);}
-function setTool(next){tool=next;pathStart=null;corridorChoice=null;buildChoice=null;demolishChoice=null;hoverTile=state.selected.underground;placement=null;updateConstruction();updatePlacement();
+function setTool(next){if(next!==tool)buildRotated=false;tool=next;pathStart=null;corridorChoice=null;buildChoice=null;demolishChoice=null;hoverTile=state.selected.underground;placement=null;updateConstruction();updatePlacement();
  status(tool==='path'?'通路：始点を長押し→指を滑らせて離すと施工（タップ2回でも可）。ドラッグだけならマップ移動。':BUILDABLE.includes(tool)?`${FACILITY_NAMES[tool]} ${FACILITY_SIZES[tool].join('×')}・${BUILD_COSTS[tool]}G：タップで仮置き→範囲内を再タップで建設。仮置きを長押しで移動。${FACILITIES[tool]?.tech&&!colony.completedResearch.includes(FACILITIES[tool].tech)?`（要研究：${techById(FACILITIES[tool].tech).name}）`:''}`:tool==='unlock'?'閉鎖区画をタップして選択し、再タップして開放。':tool==='demolish'?'施設・通路をタップして選択→同じ対象を再タップして撤去。':'マップを観察できます。');}
 for(const btn of document.querySelectorAll('[data-tool]'))btn.addEventListener('click',()=>{if(state.layer!=='underground'&&btn.dataset.tool!=='inspect')switchLayer('underground');setTool(btn.dataset.tool)});
 function rectangle(x,y,w,h){const cells=[];for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)cells.push({x:xx,y:yy});return cells;}
@@ -118,7 +121,7 @@ function updatePlacement(){window.__buildChoice=buildChoice;
  placement=null;if(state.layer!=='underground'||tool==='inspect')return;
  const p=buildChoice??hoverTile??state.selected.underground;
  if(BUILDABLE.includes(tool)){
-  const v=buildingPreview(worlds.underground,tool,p.x,p.y,game.money);
+  const v=buildingPreview(worlds.underground,tool,p.x,p.y,game.money,buildRotated);
   placement={kind:tool,x:p.x,y:p.y,w:v.w,h:v.h,tiles:rectangle(p.x,p.y,v.w,v.h),valid:v.ok};
  }else if(tool==='path'&&corridorChoice?.start){
   const to=corridorChoice.end??hoverTile??corridorChoice.start;
@@ -161,12 +164,12 @@ function buildAt(tile){
   worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設','通路の一括施工');corridorChoice=null;pathStart=null;status(`通路 ${plan.newTiles.length}マスを敷設（−${result.cost}G）。次の始点を選択。`);
  }else if(BUILDABLE.includes(tool)){
   const fac=FACILITIES[tool];if(fac?.tech&&!colony.completedResearch.includes(fac.tech)){status(`${fac.name}には研究「${techById(fac.tech).name}」が必要です。`);return;}
-  const dimensions=FACILITY_SIZES[tool];
+  const dimensions=sizeOf(tool);
   const next=chooseFootprint(buildChoice,tool,tile,dimensions);buildChoice=next.candidate;
-  const v=buildingPreview(world,tool,buildChoice.x,buildChoice.y,game.money);
+  const v=buildingPreview(world,tool,buildChoice.x,buildChoice.y,game.money,buildRotated);
   if(!next.commit){status(`${FACILITY_NAMES[tool]} ${v.w}×${v.h}・${BUILD_COSTS[tool]}G：${v.ok?'設置可能':'設置不可・'+v.reason}。範囲内をもう一度タップで建設／長押しで移動。`);updatePlacement();return;}
   if(!v.ok){status('配置不可：'+v.reason);updatePlacement();return;}
-  const result=applyConstruction(world,{type:'build',kind:tool,x:buildChoice.x,y:buildChoice.y},game.money);
+  const result=applyConstruction(world,{type:'build',kind:tool,x:buildChoice.x,y:buildChoice.y,rotated:buildRotated},game.money);
   if(!result.ok){status(result.reason);return;}
   worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',FACILITY_NAMES[tool]+'の建築');buildChoice=null;status(`${FACILITY_NAMES[tool]} ${v.w}×${v.h} を建設（−${result.cost}G）`);
  }
@@ -198,6 +201,10 @@ function visibleBuildingAt(point){
  }
  return null;
 }
+function positionRotateButton(){const b=el('rotateBuild');if(!b)return;const show=state.layer==='underground'&&buildChoice&&BUILDABLE.includes(tool)&&!state.gesture?.mode?.startsWith('move');
+ if(!show){b.hidden=true;return;}const [w,h]=sizeOf(buildChoice.kind);let best=null;
+ for(const [cx,cy] of [[buildChoice.x,buildChoice.y],[buildChoice.x+w,buildChoice.y],[buildChoice.x,buildChoice.y+h],[buildChoice.x+w,buildChoice.y+h]]){const p=projectedTile(cx-.5,cy-.5,state.view.rotation??0),v=worldToView(p.x,p.y,state.view);if(!best||v.x>best.x)best=v;}
+ const r=canvas.getBoundingClientRect(),host=canvas.offsetParent?.getBoundingClientRect()??r;b.hidden=false;b.style.left=`${Math.min(r.width-48,Math.max(4,best.x+8))+r.left-host.left}px`;b.style.top=`${Math.min(r.height-48,Math.max(4,best.y-22))+r.top-host.top}px`;}
 function residentAt(point){let best=null,bd=26*Math.max(.6,state.view.zoom);
  for(const r of visibleResidents(game,state.layer,worlds[state.layer])){const w=projectedTile(r.x,r.y,state.view.rotation??0),v=worldToView(w.x,w.y-14,state.view);const d=Math.hypot(v.x-point.x,v.y-point.y);if(d<bd){bd=d;best=r.resident;}}
  return best;}
@@ -211,7 +218,7 @@ function beginGesture(){
   if(pointers.length===1)state.gesture={mode:'drag',start:pointers[0],startTile:atPoint(pointers[0]),prev:pointers[0],moved:false};
   else if(pointers.length>=2)state.gesture={mode:'pinch',...makePinch(state.view,pointers[0],pointers[1])};
 }
-function insideCandidate(t){return buildChoice&&BUILDABLE.includes(buildChoice.kind)&&t&&t.x>=buildChoice.x&&t.x<buildChoice.x+FACILITY_SIZES[buildChoice.kind][0]&&t.y>=buildChoice.y&&t.y<buildChoice.y+FACILITY_SIZES[buildChoice.kind][1];}
+function insideCandidate(t){if(!buildChoice||!BUILDABLE.includes(buildChoice.kind)||!t)return false;const [w,h]=sizeOf(buildChoice.kind);return t.x>=buildChoice.x&&t.x<buildChoice.x+w&&t.y>=buildChoice.y&&t.y<buildChoice.y+h;}
 canvas.addEventListener('pointerdown',evt=>{
   if(evt.button!==0&&evt.pointerType==='mouse')return;
   canvas.setPointerCapture(evt.pointerId);state.pointers.set(evt.pointerId,canvasCoords(evt));beginGesture();
@@ -228,7 +235,7 @@ canvas.addEventListener('pointermove',evt=>{
   if(!state.pointers.has(evt.pointerId))return;
   const point=canvasCoords(evt);state.pointers.set(evt.pointerId,point);
   const g=state.gesture;
-  if(state.pointers.size===1&&g?.mode==='moveCandidate'){const t=atPoint(point);if(t&&buildChoice){const [w,h]=FACILITY_SIZES[buildChoice.kind];buildChoice={...buildChoice,x:Math.max(0,Math.min(MAP_SIZE-w,t.x-g.offset.x)),y:Math.max(0,Math.min(MAP_SIZE-h,t.y-g.offset.y))};updatePlacement();}return;}
+  if(state.pointers.size===1&&g?.mode==='moveCandidate'){const t=atPoint(point);if(t&&buildChoice){const [w,h]=sizeOf(buildChoice.kind);buildChoice={...buildChoice,x:Math.max(0,Math.min(MAP_SIZE-w,t.x-g.offset.x)),y:Math.max(0,Math.min(MAP_SIZE-h,t.y-g.offset.y))};updatePlacement();}return;}
   if(state.pointers.size===1&&g?.mode==='drawPath'){const t=atPoint(point);if(t){corridorChoice={start:g.startTile,end:t};hoverTile=t;updatePlacement();}g.moved=true;return;}
   if(state.pointers.size===1&&g?.mode==='drag'){
     const deltaX=point.x-g.prev.x,deltaY=point.y-g.prev.y;
@@ -246,7 +253,7 @@ function endPointer(evt){
   const screenBuilding=(state.layer==='surface'||tool==='demolish')?visibleBuildingAt(point):null;
   const tile=screenBuilding?{x:screenBuilding.x,y:screenBuilding.y}:atPoint(point);
   if(evt.type==='pointerup'&&one){
-    if(g?.mode==='moveCandidate'){const v=buildingPreview(worlds.underground,buildChoice.kind,buildChoice.x,buildChoice.y,game.money);status(`位置を (${buildChoice.x}, ${buildChoice.y}) に移動：${v.ok?'設置可能。範囲内をもう一度タップで建設':'設置不可・'+v.reason}`);updatePlacement();}
+    if(g?.mode==='moveCandidate'){const v=buildingPreview(worlds.underground,buildChoice.kind,buildChoice.x,buildChoice.y,game.money,buildRotated);status(`位置を (${buildChoice.x}, ${buildChoice.y}) に移動：${v.ok?'設置可能。範囲内をもう一度タップで建設':'設置不可・'+v.reason}`);updatePlacement();}
     else if(g?.mode==='drawPath'&&tile){buildCorridorDrag(g.startTile,tile);}
     else if(g?.mode==='drag'&&!g.moved&&tile){
       state.selected[state.layer]=tile;hoverTile=tile;updateSelection();
@@ -472,6 +479,7 @@ for(const button of document.querySelectorAll('[data-supply]'))button.addEventLi
  if(r.ok){colony=r.colony;game={...game,money:r.money,food:colony.inventory.food};moneyChange(-r.cost,'生活物資仕入れ',SUPPLIES[button.dataset.supply].name+' '+r.quantity+'個');}
  updateEconomy();updateColonyPanel(r.ok?`${SUPPLIES[button.dataset.supply].name}を${r.quantity}個仕入れ（−${r.cost}G）`:r.reason);
 });
+el('rotateBuild').addEventListener('click',e=>{e.stopPropagation();rotateCandidate();});
 el('researchStart').addEventListener('click',()=>{
  if(!selectedTech)return;
  const r=startTech(colony,game.money,selectedTech,connectedLabs()>0);
@@ -580,7 +588,7 @@ function render(t){
     }
     if(updated)updateEconomy();
   }
-  if(bounds.width&&bounds.height){ctx.setTransform(dpr,0,0,dpr,0,0);{const cty=CITY.ensureCity(surfaceEconomy).city;worlds.surface.lotDefs=CITY.LOTS;worlds.surface.lotState=cty.lots;worlds.surface.lotOpen=(x,y)=>{const l=lotAt(x,y);return !!l&&CITY.lotOpen(cty,l);};}try{drawScene(ctx,worlds[state.layer],state.view,state.selected[state.layer],(t-state.started)/1000,bounds,game,placement);}catch(err){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1;ctx.fillStyle='rgba(120,30,30,.85)';ctx.fillRect(8,bounds.height-58,bounds.width-16,50);ctx.fillStyle='#fff';ctx.font='12px system-ui';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('描画エラー：'+String(err?.message??err).slice(0,60),16,bounds.height-52);ctx.fillText('この画面のスクショを送ってください',16,bounds.height-34);if(!window.__drawErr){window.__drawErr=err;console.error(err);}}}
+  if(bounds.width&&bounds.height){positionRotateButton();ctx.setTransform(dpr,0,0,dpr,0,0);{const cty=CITY.ensureCity(surfaceEconomy).city;worlds.surface.lotDefs=CITY.LOTS;worlds.surface.lotState=cty.lots;worlds.surface.lotOpen=(x,y)=>{const l=lotAt(x,y);return !!l&&CITY.lotOpen(cty,l);};}try{drawScene(ctx,worlds[state.layer],state.view,state.selected[state.layer],(t-state.started)/1000,bounds,game,placement);}catch(err){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1;ctx.fillStyle='rgba(120,30,30,.85)';ctx.fillRect(8,bounds.height-58,bounds.width-16,50);ctx.fillStyle='#fff';ctx.font='12px system-ui';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('描画エラー：'+String(err?.message??err).slice(0,60),16,bounds.height-52);ctx.fillText('この画面のスクショを送ってください',16,bounds.height-34);if(!window.__drawErr){window.__drawErr=err;console.error(err);}}}
   raf=requestAnimationFrame(render);
 }
 document.addEventListener('visibilitychange',()=>{
