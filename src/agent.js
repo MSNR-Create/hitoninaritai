@@ -36,7 +36,10 @@ function homeSpot(game,resident,world){const a=homeAssignments(game,world)[resid
 // v2.4 role workplace: the facility kind each processing resident used last night (world.workPlaces), else any.
 function workSpot(game,resident,world,kinds,idx){const fac=(world?.buildings??[]).filter(b=>kinds.includes(b.kind));if(!fac.length)return null;
  const want=world.workPlaces?.[resident.name];const pool=want!=null?fac.filter(b=>b.id===want||b.kind===want):fac;const b=(pool.length?pool:fac)[Math.max(0,idx)%(pool.length||fac.length)];
- return {b,pt:[b.x+.1+(idx%2)*Math.min(.8,b.w-1.1),b.y+.5]};}
+ // v2.6: posted workers stand at their own spot INSIDE the assigned building's footprint.
+ const mates=want!=null?game.residents.filter(r=>world.workPlaces?.[r.name]===want&&r.activeJob===resident.activeJob):[];const k=Math.max(0,mates.findIndex(r=>r.id===resident.id));
+ const spots=[[.3,.35],[.7,.65],[.7,.3],[.3,.7]];const s=want!=null?spots[k%4]:[(idx%2)?.7:.3,.5];
+ return {b,pt:[b.x+.15+s[0]*Math.max(.2,b.w-.3),b.y+.15+s[1]*Math.max(.2,b.h-.3)]};}
 const PROCESS_KINDS=['sorting','extractor','mushroom','kitchen','farm','water','chemical','culture','recycler','workshop','disguise','archives','lounge'];
 export function residentVisual(game,resident,world=null){
   const index=game.residents.findIndex(r=>r.id===resident.id);

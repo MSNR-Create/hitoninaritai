@@ -262,3 +262,16 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 .procure-row input{width:52px;padding:6px;border-radius:8px;border:1px solid #6d8f86;background:#0f2630;color:#fff;font-size:14px;text-align:center}
 .procure-total{font-weight:700;color:#f0dfa7}.procure-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}.procure-actions button{padding:11px;border-radius:9px;border:0;font-weight:700;background:#3a5560}.procure-actions #procureGo{background:#a5cdaa;color:#17352b}
 .procure-row[hidden]{display:none}
+.raid-box{margin-top:12px;padding:10px;border:1px solid #8a4a4a;border-radius:10px;background:#3a1e22}.raid-box h3{margin:0 0 4px;font-size:14px}
+.raid-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin:6px 0}.raid-row select{padding:7px;border-radius:8px;background:#1c1012;color:#fff;border:1px solid #8a5a5a}
+.raid-row button{padding:8px 10px;border-radius:8px;border:1px solid #c86a6a;background:#7a2a2a;color:#fff;font-weight:700}.raid-row button:disabled{opacity:.4}
+.danger{background:#7a2a2a!important;border-color:#c86a6a!important;color:#fff!important}
+.gameover{border-color:#c86a6a;background:#2a1216}.gameover h2{color:#ff9a8a}
+@media(max-width:640px){.viewport .controls{bottom:58px!important;right:6px!important}.viewport > .selection-panel{width:calc(100% - 12px)!important;max-width:none}}
+.city-goal{display:grid;gap:5px;margin:8px 0}.cg-title{font-size:12px;font-weight:700;color:#f0dfa7}
+.cg-row{display:grid;grid-template-columns:5.2em 1fr 6.5em;gap:6px;align-items:center;font-size:11px}.cg-row b{font-weight:600}.cg-row span{text-align:right;color:#cfe0da;font-variant-numeric:tabular-nums}
+.cg-bar{position:relative;height:10px;border-radius:5px;background:#0e2430;border:1px solid #33505b;overflow:visible}.cg-bar i{display:block;height:100%;border-radius:5px}
+.cg-bar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;box-shadow:0 0 3px #000}.cg-row.ok span{color:#9fe0a8}
+.city-advice p{margin:3px 0!important;font-size:11px!important;color:#e8d9b0!important;min-height:0!important}
+.city-legend{display:flex;gap:10px;align-items:center;font-size:10px;margin-top:6px}.city-legend span::before{content:'';display:inline-block;width:12px;height:3px;margin-right:4px;vertical-align:middle;background:var(--c)}.city-legend small{margin-left:auto!important;display:inline!important}
+#cityChart{width:100%;height:120px;display:block;border-radius:8px}

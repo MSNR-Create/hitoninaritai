@@ -13,7 +13,7 @@ export function validateSession(input){
  if(typeof input==='string'){if(new TextEncoder().encode(input).length>MAX_BYTES)throw Error('保存データが大きすぎます');input=JSON.parse(input)}
  if(!isRecord(input)||input.schemaVersion!==SAVE_VERSION)throw Error('対応していないセーブ形式です');
  const {game,colony,social,world,resale,rented,owned=[]}=input;
- if(!isRecord(game)||!Number.isInteger(game.day)||game.day<1||game.day>1e7||!Number.isInteger(game.tick)||game.tick<0||!Array.isArray(game.residents)||game.residents.length>10||!Number.isFinite(game.money)||game.money<0||!Number.isFinite(game.alert)||game.alert<0||game.alert>100)throw Error('ゲーム状態が不正です');
+ if(!isRecord(game)||!Number.isInteger(game.day)||game.day<1||game.day>1e7||!Number.isInteger(game.tick)||game.tick<0||!Array.isArray(game.residents)||game.residents.length>10||!Number.isFinite(game.money)||game.money<-1e9||!Number.isFinite(game.alert)||game.alert<0||game.alert>100)throw Error('ゲーム状態が不正です');
  if(!isRecord(colony)||!isRecord(colony.inventory)||!Object.values(colony.inventory).every(v=>Number.isSafeInteger(v)&&v>=0)||!isRecord(social)||!Array.isArray(social.history)||social.history.length>100||!Array.isArray(social.neighbors)||!isRecord(social.links))throw Error('住民・倉庫情報が不正です');
  if(!isRecord(world)||!Array.isArray(world.closed)||!Array.isArray(world.paths)||!Array.isArray(world.accents)||!Array.isArray(world.buildings)||world.buildings.length>200||!Array.isArray(world.zones))throw Error('マップ情報が不正です');
  const tileValid=a=>a.length<=MAP_SIZE*MAP_SIZE&&a.every(s=>typeof s==='string'&&/^\d{1,2},\d{1,2}$/.test(s)&&s.split(',').every(t=>+t<MAP_SIZE));
