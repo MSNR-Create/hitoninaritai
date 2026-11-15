@@ -2,6 +2,7 @@ import { FACILITY_DEFS } from './catalog.js';
 import { visibleResidents } from './agent.js';
 import {streetTileKind,vehiclesAt,pedestriansAt} from './surface-city.js';
 import { prop } from './sprites.js';
+import { drawLotFacility } from './lot-art.js';
 import { surfaceOccupants } from './occupants.js';
 import { zombieSprite, humanSprite, furniture, ROOM_LAYOUT, drawTile, tileHash, blit, shade } from './sprites.js';
 import { MAP_SIZE, TILE_HEIGHT, TILE_WIDTH, tileToWorld, projectedTile, worldToView, rotateTile } from './geometry.js';
@@ -225,7 +226,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   if(world.id==='surface')for(const l of world.lotDefs??[]){for(let x=l.x;x<l.x+l.w;x++)for(let y=l.y;y<l.y+l.h;y++)occupied.add(x+','+y);
     const st=world.lotState?.[l.id]??{},cx=l.x+(l.w-1)/2,cy=l.y+(l.h-1)/2,pt=projectedTile(cx,cy,rot),open=world.lotOpen?.(l.x,l.y);
     const spr=st.facility==='leech'?'antenna':st.facility==='router'?'router':st.facility==='fiber'?'hut':st.facility==='vending'?'vending':st.facility==='lockers'?'lockers':st.facility==='garden'?'garden':'sign';
-    list.push({depth:depthOf(cx,cy),sub:1.6,draw:ctx=>{blit(ctx,prop(spr),pt.x,pt.y+6);
+    list.push({depth:depthOf(cx,cy),sub:1.6,draw:ctx=>{if(spr!=='sign'){drawLotFacility(ctx,st.facility,pt.x,pt.y,elapsedSeconds);return;}blit(ctx,prop(spr),pt.x,pt.y+6);
       if(spr==='sign'){ctx.fillStyle='#4a3424';ctx.font='bold 8px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(open?(st.leased?'契約中':'空き地'):'🔒',pt.x,pt.y-6);}
       if(st.facility==='leech'||st.facility==='router'||st.facility==='fiber'){const t=elapsedSeconds;for(let i=0;i<2;i++){const p=(t*.8+i/2)%1;ctx.strokeStyle=`rgba(120,200,255,${1-p})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(pt.x,pt.y-(spr==='hut'?24:20),5+p*14,-2.5,-.6);ctx.stroke();}}}});}
   for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){const k=x+','+y;if(occupied.has(k))continue;const h=tileHash(x*3+1,y*5+2);let name=null;

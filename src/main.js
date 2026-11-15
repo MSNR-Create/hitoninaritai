@@ -662,16 +662,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(!raf){lastTime=null;raf=requestAnimationFrame(render);}
 });
 layerButton();updateResalePanel();updateRentalPanel();updateColonyPanel();updateEndingPanel();loadSnapshot().then(data=>{if(data){restoreData(data);saveStatus('前回の続きから再開しました');}else saveStatus('新しいゲームです。自動保存は毎朝行います。');}).catch(err=>saveStatus('保存領域を使用できません：'+err.message));
-// A new SW can take control after the current HTML/CSS have already loaded.
-// Reload once on a controller replacement so the active PWA never keeps stale CSS.
-if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
-  const hadController=!!navigator.serviceWorker.controller;
-  let reloadingForUpdate=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(hadController&&!reloadingForUpdate){reloadingForUpdate=true;window.location.reload();}
-  });
-  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});
-}
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 raf=requestAnimationFrame(render);
 
 // Map-centric sheets: the panel stays within the viewport instead of pushing the map down.
