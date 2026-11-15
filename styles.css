@@ -92,7 +92,7 @@ body { position: fixed; inset: 0; }
 }
 .app-shell > .topbar,.app-shell > .metrics,.app-shell > .game-panel,.app-shell > .bottom-menu { min-height: 0; margin: 0; }
 .app-shell > .game-panel {
-  display: grid; grid-template-rows: auto auto minmax(0,1fr);
+  display: grid; grid-template-rows: auto minmax(0,1fr);
   min-height: 0 !important; height: auto; max-height: 100%; overflow: hidden;
 }
 .app-shell .game-panel > .viewport { min-height: 0 !important; height: auto !important; overflow: hidden; }
@@ -288,3 +288,12 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 @media(max-width:520px){.brand h1{font-size:13px}.scene-name{display:none}.metrics strong{font-size:12px!important}.metrics>div>span{font-size:12px!important}.metrics small{font-size:8px!important}}
 .metrics strong span,.metrics strong small{display:inline!important;margin:0!important}
 .metrics strong span{font-size:inherit!important;color:inherit!important}
+/* v2.9 research tree */
+.research-tree.tree-mode{display:block!important;overflow:auto;max-width:none;padding:8px;max-height:none}
+.tree-canvas{position:relative;display:grid;gap:8px 34px;grid-auto-rows:auto;width:max-content;padding:4px 8px 10px}
+.tree-lines{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
+.tree-lines .tl{fill:none;stroke:#4a6670;stroke-width:2;stroke-dasharray:4 3}.tree-lines .tl.done{stroke:#8fd6a0;stroke-dasharray:none}.tree-lines .tl.hot{stroke:#f2d37a;stroke-width:3;stroke-dasharray:none}
+.tree-mode .research-node{position:relative;z-index:1;width:128px;min-height:54px}
+.tier-head{font-size:11px;font-weight:700;color:#9fd3c7;text-align:center;border-bottom:1px solid #3c5a63;padding-bottom:2px}
+.lane-head{font-size:11px;font-weight:700;color:#f0dfa7;margin-top:6px;padding:2px 6px;border-left:3px solid #f0dfa7;background:#ffffff08;border-radius:4px}
+.tree-lines .tl.cross{opacity:.18}.tree-lines .tl.cross.hot{opacity:1}
