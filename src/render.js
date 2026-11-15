@@ -109,22 +109,33 @@ export function buildingParts(b,connected=true,rotation=0){
   };
   return {parts,overlay};
 }
-function carSprite(ctx,pt,axis,color){
- const major=axis==='x'?[13,6]:[-13,6];
- const perp=axis==='x'?[8,-4]:[8,4];
- const x=pt.x,y=pt.y-4;
- const center=(a,b)=>[x+a*major[0]+b*perp[0],y+a*major[1]+b*perp[1]];
- ctx.fillStyle='rgba(9,19,25,.28)';ctx.beginPath();ctx.ellipse(x,y+10,12,5,0,0,Math.PI*2);ctx.fill();
- polygon(ctx,[center(-.82,-.52),center(.82,-.52),center(.82,.52),center(-.82,.52)],'#101c24','#20343f',1.8);
- const bumper=center(.76,0);ctx.fillStyle='#202e35';ctx.fillRect(Math.round(bumper[0]-5),Math.round(bumper[1]+4),10,4);
- polygon(ctx,[center(-.72,-.42),center(.72,-.42),center(.72,.42),center(-.72,.42)],color,'#dfe0cf',1.3);
- polygon(ctx,[center(-.18,-.34),center(.36,-.34),center(.46,.02),center(.10,.34),center(-.24,.34),center(-.32,.02)],'#355264','#e5f1ef',1.0);
- polygon(ctx,[center(-.55,-.33),center(-.12,-.33),center(-.08,.33),center(-.48,.33)],'#2f4654','#d7ece7',0.9);
- polygon(ctx,[center(.40,-.26),center(.62,-.18),center(.62,.18),center(.40,.26)],'#7e9cab','#d7ece7',0.9);
- for(const t of [-.30,.30]){ const c=center(.74,t); ctx.fillStyle='#ffe39a'; ctx.fillRect(c[0]-2,c[1]-2,4,3); }
- for(const t of [-.28,.28]){ const c=center(-.76,t); ctx.fillStyle='#c9595f'; ctx.fillRect(c[0]-2,c[1]-2,4,3); }
- for(const [a,b] of [[-.45,-.54],[-.45,.54],[.45,-.54],[.45,.54]]){ const c=center(a,b); ctx.fillStyle='#1b2328'; ctx.fillRect(c[0]-2,c[1]-2,4,4); }
+// v2.3 isometric 3D car: boxes built on the tile axes (f = forward, sd = side, both in screen px per tile),
+// faces painted back-to-front with per-face shading, so it reads as a solid at every view rotation.
+function car3d(ctx,c,f,sd,color){
+ const P=(u,v,h)=>[c.x+f[0]*u+sd[0]*v,c.y+f[1]*u+sd[1]*v-h];
+ const box=(u0,u1,w,h0,h1,top,side,front,back,glass)=>{
+  const g=[[u0,-w],[u1,-w],[u1,w],[u0,w]];const faces=[];
+  for(let i=0;i<4;i++){const a=g[i],b=g[(i+1)%4];const pts=[P(a[0],a[1],h0),P(b[0],b[1],h0),P(b[0],b[1],h1),P(a[0],a[1],h1)];
+   const my=(pts[0][1]+pts[1][1])/2;const kind=i===1?'front':i===3?'back':'side';faces.push({pts,my,kind});}
+  faces.sort((p,q)=>p.my-q.my);
+  for(const fc of faces){const col=fc.kind==='front'?front:fc.kind==='back'?back:side;polygon(ctx,fc.pts,col,'rgba(20,28,34,.55)',0.8);
+   if(glass&&fc.kind==='side'){const [p0,p1,p2,p3]=fc.pts;const L=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+    polygon(ctx,[L(p0,p1,.12),L(p0,p1,.88),L(p3,p2,.88).map((v,i)=>i?v+2:v),L(p3,p2,.12).map((v,i)=>i?v+2:v)],glass,null);}}
+  polygon(ctx,g.map(([u,v])=>P(u,v,h1)),top,'rgba(20,28,34,.55)',0.8);
+ };
+ // shadow
+ ctx.fillStyle='rgba(8,16,22,.32)';ctx.beginPath();const sh=[[-.5,-.27],[.5,-.27],[.5,.27],[-.5,.27]].map(([u,v])=>P(u*1.06,v*1.15,-1));ctx.moveTo(...sh[0]);for(const q of sh.slice(1))ctx.lineTo(...q);ctx.closePath();ctx.fill();
+ // wheels (drawn under the body; only the ones on the near side show)
+ for(const [u,v] of [[-.3,-.23],[.3,-.23],[-.3,.23],[.3,.23]]){const w=P(u,v,2);ctx.fillStyle='#151a1e';ctx.beginPath();ctx.ellipse(w[0],w[1],3.4,2.4,0,0,Math.PI*2);ctx.fill();}
+ const lit=shade(color,22),mid=color,dark=shade(color,-30),darker=shade(color,-48);
+ box(-.46,.46,.22,2,9,lit,dark,mid,darker,null);
+ // lights on the body ends
+ const fl=[P(.46,-.13,6),P(.46,.13,6)],bl=[P(-.46,-.13,6),P(-.46,.13,6)];
+ for(const q of fl){ctx.fillStyle='#ffe39a';ctx.fillRect(Math.round(q[0]-1.5),Math.round(q[1]-1),3,2);}
+ for(const q of bl){ctx.fillStyle='#e0473c';ctx.fillRect(Math.round(q[0]-1.5),Math.round(q[1]-1),3,2);}
+ box(-.24,.18,.17,9,15,shade(color,34),'#2c4654','#3a5e72','#26404e','#8fc8e0');
 }
+function carSprite(ctx,pt,axis,color){car3d(ctx,{x:pt.x,y:pt.y},axis==='x'?[24,12]:[-24,12],axis==='x'?[-14,7]:[14,7],color);}
 function streetPerson(ctx,pt,index,seconds,flip=index%2===1,activity='walk'){
  const x=Math.round(pt.x),y=Math.round(pt.y+4);
  ctx.fillStyle='rgba(9,19,25,.3)';ctx.beginPath();ctx.ellipse(x,y,7,3,0,0,Math.PI*2);ctx.fill();
@@ -187,7 +198,9 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   if(world.id==='surface'){
     const humanCount=world.humanCount??34,trust=world.humanTrust??55;
     for(const v of vehiclesAt(elapsedSeconds,humanCount,trust)){const pt=projectedTile(v.x,v.y,rot);
-      list.push({depth:depthOf(v.x,v.y),sub:2,draw:ctx=>{ctx.save();ctx.translate(pt.x,pt.y);ctx.scale(1.6,1.6);ctx.translate(-pt.x,-pt.y);carSprite(ctx,pt,rot%2===0?v.axis:(v.axis==='x'?'y':'x'),v.color);ctx.restore();}});}
+      const fx=v.axis==='x'?v.dir??1:0,fy=v.axis==='y'?v.dir??1:0,p1=projectedTile(v.x+fx,v.y+fy,rot),p2=projectedTile(v.x-fy,v.y+fx,rot);
+      const fvec=[(p1.x-pt.x)*1.15,(p1.y-pt.y)*1.15],svec=[(p2.x-pt.x)*1.15,(p2.y-pt.y)*1.15];
+      list.push({depth:depthOf(v.x,v.y),sub:2,draw:ctx=>car3d(ctx,{x:pt.x,y:pt.y+2},fvec,svec,v.color)});}
     for(const walker of pedestriansAt(elapsedSeconds,humanCount)){const t=projectedTile(walker.x,walker.y,rot);list.push({depth:depthOf(walker.x,walker.y),sub:2,draw:ctx=>streetPerson(ctx,t,walker.id,elapsedSeconds)});}
   }
   // v2.2 underground = solid earth. Every undug tile (not a corridor, not under a facility) is a raised
