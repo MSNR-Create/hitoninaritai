@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { initialGame } from '../src/simulation.js';
+import { initialColony } from '../src/colony.js';
+import { initialSocial, advanceSocial } from '../src/social.js';
+import { makeWorlds } from '../src/world.js';
+import { initialResale } from '../src/resale.js';
+import { serializeSession,validateSession,hydrateWorld } from '../src/persistence.js';
+import { sceneDefinition, eventsForDay } from '../src/event-scenes.js';
+const session=()=>({game:initialGame(),colony:initialColony(),social:initialSocial(),world:makeWorlds().underground,resale:initialResale(),rented:[]});
+test('release snapshot roundtrips 16x16 Sets and is validated',()=>{const data=serializeSession(session());const valid=validateSession(data);const restored=hydrateWorld(valid.world);assert.ok(restored.closed instanceof Set);assert.equal(restored.closed.size,session().world.closed.size);assert.equal(valid.game.residents.length,5);});
+test('release rejects malformed and unsupported backups',()=>{assert.throws(()=>validateSession('{broken'));assert.throws(()=>validateSession({...JSON.parse(serializeSession(session())),schemaVersion:99}));assert.throws(()=>validateSession({...JSON.parse(serializeSession(session())),game:{...initialGame(),money:-100}}));});
+test('release rejects invalid building tiles and unsafe inventory',()=>{let data=JSON.parse(serializeSession(session()));data.world.buildings[0].x=25;assert.throws(()=>validateSession(data));data=JSON.parse(serializeSession(session()));data.colony.inventory.food=-1;assert.throws(()=>validateSession(data));});
+test('all key event types have visual definitions',()=>{for(const kind of ['friendship','warning','police','conversion','loss','incident','research','ending'])assert.ok(sceneDefinition(kind).title);});
+test('actual relationship events feed visuals',()=>{let game=initialGame();for(const r of game.residents){r.fatigue=20;r.impulse=10;r.lastNeeds={food:true};}let result=advanceSocial(initialSocial(),game,initialColony(),5);const scenes=eventsForDay(0,result.social,initialColony(),game);assert.ok(scenes.some(s=>s.kind==='friendship'));});

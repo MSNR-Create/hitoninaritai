@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as ST from '../src/storage.js';
+import {makeWorlds} from '../src/world.js';
+import {applyConstruction} from '../src/construction.js';
+import {initialColony} from '../src/colony.js';
+test('base capacity holds the starting stock; pantry/storage raise caps',()=>{const w=makeWorlds().underground,c=ST.capacities(w),inv=initialColony().inventory;
+ assert.ok(inv.food<=c.food&&ST.goodsTotal(inv)<=c.goods);
+ const w2={...w,buildings:[...w.buildings,{id:'p',kind:'pantry',x:0,y:0,w:2,h:2},{id:'s',kind:'storage',x:0,y:0,w:3,h:2}],connectivity:{...w.connectivity,p:true,s:true}};
+ const c2=ST.capacities(w2);assert.equal(c2.food,c.food+40);assert.equal(c2.goods,c.goods+60);});
+test('full storage refuses intake but never deletes existing stock',()=>{const caps={food:30,goods:30};
+ const t=ST.intake({food:28},'food',5,caps);assert.equal(t.inventory.food,30);assert.equal(t.refused,3);
+ const over=ST.intake({food:40},'food',5,caps);assert.equal(over.inventory.food,40);assert.equal(over.accepted,0);
+ assert.equal(ST.room({care:20,salvage:10},'samples',caps),0);});
+test('build palette lists 食料庫 and 資材置き場; locked facilities get disabled in UI code',async()=>{const fs=await import('node:fs');const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8'),main=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ assert.match(html,/data-tool="pantry"/);assert.match(html,/data-tool="storage"/);assert.match(main,/b\.disabled=!!locked\|\|poor/);assert.match(main,/function residentAt\(point\)/);});

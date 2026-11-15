@@ -28,7 +28,7 @@ test('room interiors render after ground in a dedicated pass',()=>{
  const draws=[];
  const ctx=new Proxy({fillStyle:'#000',strokeStyle:'#000',createLinearGradient:()=>({addColorStop(){}}),fill(){draws.push(this.fillStyle)},measureText:()=>({width:0})},{get(o,k){if(k in o)return o[k];return ()=>{};}});
  drawScene(ctx,makeWorlds().surface,{cx:450,cy:300,panX:0,panY:0,zoom:1,rotation:0},null,0,{width:900,height:600},null);
- const lastGround=Math.max(...draws.flatMap((c,i)=>['#455b59','#4b635f','#283d42','#72847c','#60736e'].includes(c)?[i]:[]));
- const roomFloor=draws.findIndex(c=>['#807998','#9a795f','#667a87','#84a79d','#ab805d'].includes(c));
+ const lastGround=Math.max(...draws.flatMap((c,i)=>['#79c35f','#82ca66','#8e9298','#e2d3b0','#9bd27a'].includes(c)?[i]:[]));
+ const roomFloor=draws.findIndex(c=>['#f1d6b2','#f3dcb2','#d8d0c0','#f4f4ee','#ecc896'].includes(c));
  assert.ok(lastGround>=0 && roomFloor>lastGround,`room floor must render above ground: ${lastGround}, ${roomFloor}`);
 });

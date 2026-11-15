@@ -3,8 +3,9 @@ import { inBounds } from './geometry.js';
 const k=(x,y)=>`${x},${y}`;
 const neighbors=(x,y)=>[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(([a,b])=>inBounds(a,b));
 export const ZONE_COSTS=Object.freeze({northwest:75,northeast:110,southeast:140});
-export const BUILD_COSTS=Object.freeze({path:5,home:100,shop:80,lab:120});
-export const FACILITY_SIZES=Object.freeze({home:[3,2],shop:[2,3],lab:[2,2]});
+export const BUILD_COSTS=Object.freeze({path:5,home:100,shop:80,lab:120,wash:70,sorting:90,extractor:170,pantry:90,storage:110});
+export const FACILITY_SIZES=Object.freeze({home:[3,2],shop:[2,3],lab:[2,2],wash:[2,2],sorting:[2,2],extractor:[3,2],pantry:[2,2],storage:[3,2]});
+export const FACILITY_NAMES=Object.freeze({home:'増築住居',shop:'共同配給所',lab:'研究室',wash:'簡易洗浄台',sorting:'回収物選別台',extractor:'研究試料抽出装置',pantry:'食料庫',storage:'資材置き場'});
 export function zoneAt(world,x,y){return world.zones?.find(z=>x>=z.x&&x<z.x+z.w&&y>=z.y&&y<z.y+z.h)??null;}
 function hasBuilding(world,x,y){return world.buildings.some(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h);}
 function isOpen(world,x,y){return inBounds(x,y)&&!world.closed.has(k(x,y));}
@@ -66,7 +67,7 @@ export function applyConstruction(world,action,money){
   else{
     const [w,h]=FACILITY_SIZES[action.kind];
     copy.nextBuildingId=(copy.nextBuildingId??1)+1;
-    copy.buildings.push({id:`built-${copy.nextBuildingId}`,name:action.kind==='home'?'増築住居':action.kind==='lab'?'研究室':'共同配給所',kind:action.kind,x:action.x,y:action.y,w,h,description:'通路につながると利用できます。'});
+    copy.buildings.push({id:`built-${copy.nextBuildingId}`,name:FACILITY_NAMES[action.kind]??action.kind,kind:action.kind,x:action.x,y:action.y,w,h,description:'通路につながると利用できます。'});
   }
   copy.connectivity=connectedFacilities(copy);
   return {ok:true,world:copy,money:money-validation.cost,cost:validation.cost};

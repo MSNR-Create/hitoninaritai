@@ -34,7 +34,7 @@ export function makeWorlds() {
     closed, paths, zones, nextBuildingId:0,
     buildings: [
       { id: 'home', name: '共同住居', kind: 'home', x: 4, y: 5, w: 3, h: 2, description: '住民5体の帰る場所。Phase 1で休息機能を実装します。' },
-      { id: 'shop', name: '共同配給所', kind: 'shop', x: 10, y: 8, w: 2, h: 3, description: '人間社会から仕入れた物資を住民へ配給する施設。' },
+      { id: 'shop', name: '共同配給所', kind: 'shop', x: 10, y: 9, w: 2, h: 3, description: '人間社会から仕入れた物資を住民へ配給する施設。' },
       { id: 'exit', name: '地上への出口', kind: 'exit', x: 7, y: 2, w: 2, h: 2, description: '地上へつながる通路。Phase 1で出勤・帰還を実装します。' },
     ],
     accents: tileSet([[2,9],[3,10],[11,7],[12,7],[7,14],[9,14],[1,7],[13,10]])
@@ -48,27 +48,27 @@ export function makeWorlds() {
     closed: new Set(), paths: new Set(), sidewalks: new Set(),
     buildings: [
       { id: 'street-home', name: '人間の住宅', kind: 'humanHome', x: 2, y: 3, w: 3, h: 3, description: '地域の人間が暮らす住宅。住民が増えると商業施設の売上が増えます。' },
-      { id: 'market', name: '夜の商店', kind: 'market', x: 10, y: 3, w: 3, h: 3, description: '街の人間の買い物先。人口と信頼が売上に影響します。' },
-      { id: 'warehouse', name: '倉庫', kind: 'warehouse', x: 10, y: 10, w: 3, h: 3, description: 'ネット販売の物流拠点。地域の商業活動から収入を生みます。' },
-      { id:'clinic',name:'地域診療所',kind:'clinic',x:17,y:3,w:3,h:3,description:'信頼を高める人間の診療所。' },
-      { id:'cafe',name:'街角カフェ',kind:'cafe',x:17,y:10,w:3,h:3,description:'人間同士が交流する場所。' },
-      { id:'flats',name:'集合住宅',kind:'humanHome',x:3,y:17,w:4,h:3,description:'人口が増えると来客が増える。' },
-      { id: 'surface-exit', name: '地下への入口', kind: 'exit', x: 6, y: 7, w: 2, h: 2, description: '地下タウンへ戻る入口です。' }
+      { id: 'market', name: '夜の商店', kind: 'market', x: 11, y: 3, w: 3, h: 3, description: '街の人間の買い物先。人口と信頼が売上に影響します。' },
+      { id: 'warehouse', name: '倉庫', kind: 'warehouse', x: 11, y: 11, w: 3, h: 3, description: 'ネット販売の物流拠点。地域の商業活動から収入を生みます。' },
+      { id:'clinic',name:'地域診療所',kind:'clinic',x:18,y:3,w:3,h:3,description:'信頼を高める人間の診療所。' },
+      { id:'cafe',name:'街角カフェ',kind:'cafe',x:18,y:11,w:3,h:3,description:'人間同士が交流する場所。' },
+      { id:'flats',name:'集合住宅',kind:'humanHome',x:2,y:18,w:4,h:3,description:'人口が増えると来客が増える。' },
+      { id: 'surface-exit', name: '地下への入口', kind: 'exit', x: 5, y: 5, w: 2, h: 2, description: '地下タウンへ戻る入口です。' }
     ],
     accents: tileSet([[2,10],[3,10],[4,11],[13,7],[13,8],[8,13],[4,2],[7,2]])
   };
   // Human-owned buildings form a lived-in streetscape; they are scenery,
   // not empty purchasable lots. Existing investable properties stay unchanged.
   surface.cityBuildings=[
-    {id:'city-r1',kind:'humanHome',x:0,y:10,w:3,h:3,name:'民家'},
+    {id:'city-r1',kind:'humanHome',x:0,y:11,w:3,h:3,name:'民家'},
     {id:'city-r2',kind:'humanHome',x:4,y:11,w:3,h:2,name:'民家'},
     {id:'city-r3',kind:'market',x:11,y:18,w:3,h:3,name:'雑貨店'},
     {id:'city-r4',kind:'cafe',x:18,y:18,w:3,h:3,name:'食堂'},
-    {id:'city-r5',kind:'humanHome',x:20,y:2,w:3,h:3,name:'住宅'},
-    {id:'city-r6',kind:'warehouse',x:2,y:21,w:4,h:2,name:'配送所'},
+    {id:'city-r5',kind:'humanHome',x:21,y:2,w:3,h:3,name:'住宅'},
+    {id:'city-r6',kind:'warehouse',x:1,y:21,w:4,h:2,name:'配送所'},
     {id:'city-r7',kind:'humanHome',x:11,y:22,w:3,h:2,name:'住宅'},
     {id:'city-r8',kind:'humanHome',x:18,y:22,w:3,h:2,name:'住宅'},
-    {id:'city-r9',kind:'market',x:20,y:11,w:3,h:3,name:'日用品店'},
+    {id:'city-r9',kind:'market',x:21,y:11,w:3,h:3,name:'日用品店'},
     {id:'city-r10',kind:'humanHome',x:0,y:0,w:3,h:2,name:'住宅'},
     {id:'city-r11',kind:'market',x:11,y:0,w:3,h:2,name:'小売店'},
     {id:'city-r12',kind:'clinic',x:18,y:0,w:3,h:2,name:'薬局'}
