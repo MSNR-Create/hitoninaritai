@@ -24,7 +24,7 @@ function walk(world,a,b,t){const pts=tunnelRoute(world,a,b);if(pts.length<=2)ret
  const seg=pts.slice(1).map((p,i)=>Math.hypot(p[0]-pts[i][0],p[1]-pts[i][1]));const total=seg.reduce((s,v)=>s+v,0);let d=Math.max(0,Math.min(1,t))*total;
  for(let i=0;i<seg.length;i++){if(d<=seg[i]||i===seg.length-1)return along(pts[i],pts[i+1],seg[i]?Math.min(1,d/seg[i]):1);d-=seg[i];}return along(a,b,1);}
 // v2.4 each resident belongs to one home; homes fill evenly up to their own capacity.
-export function homeCapacity(world,b){const homes=world.buildings.filter(x=>x.kind==='home');return (homes[0]===b?5:2)+(world.homeBonus??0);}
+export function homeCapacity(world,b){const homes=world.buildings.filter(x=>x.kind==='home');return (homes[0]===b?5:2)+((b.level??1)-1)*2+(world.homeBonus??0);}
 export function homeAssignments(game,world){
  const homes=(world?.buildings??[]).filter(b=>b.kind==='home'&&(world.connectivity?.[b.id]??true));if(!homes.length)return {};
  const occ=new Map(homes.map(h=>[h.id,0])),caps=new Map(homes.map(h=>[h.id,homeCapacity(world,h)]));const out={};
@@ -51,6 +51,12 @@ export function residentVisual(game,resident,world=null){
   if(clock<60){
     if(clock<13&&game.day>1){return {layer:'underground',...walk(world,HUB,home,clock/12),status:'帰宅中',reason:'夜勤を終え、共同住居へ戻っています'};}
     if(clock<43){const sleepPulse=Math.sin((clock+index*3)*.2)*.035;return {layer:'underground',x:home[0]+sleepPulse,y:home[1],status:'休息中',activity:'sleep',bubble:(clock+index*5)%23===0?'はっ！寝てた':null,reason:'疲労を回復するため住居で休んでいます'};}
+    // v2.7: care-facility users (wash/cooler/repair) visit their station during the day.
+    {const fid=world?.facilityUsers?.[resident.name];const fb=fid!=null&&world.buildings.find(b=>b.id===fid);
+     if(fb){const u=(clock-43)/17,pt=[fb.x+.3+((index%2)?.45:0)*Math.max(.2,fb.w-.6),fb.y+.35+((index>>1)%2?.45:0)*Math.max(.2,fb.h-.6)];const bub={wash:'🚿ゴシゴシ',cooler:'❄️ひんやり',repair:'🩹ぬいぬい'}[fb.kind]??'…';
+      if(u<.3)return {layer:'underground',...walk(world,home,pt,u/.3),status:'施設へ移動',activity:'walk',reason:`${fb.name}を使いに行きます`};
+      if(u<.8)return {layer:'underground',x:pt[0],y:pt[1],status:`${fb.name}を利用中`,activity:'idle',bubble:(clock+index)%5<3?bub:null,reason:`${fb.name}で腐敗を抑えています`};
+      return {layer:'underground',...walk(world,pt,home,(u-.8)/.2),status:'地下で生活',activity:'walk',reason:'住居へ戻ります'};}}
     // Daily life: walk to the ration counter, receive food, chat, return home.
     const shop=world?.buildings?.find(b=>b.kind==='shop'&&(world.connectivity?.[b.id]??true));
     if(shop){const slot=[[0,1.55],[.75,1.55],[0,2.25],[.75,2.25],[.38,1.9]][index%5];const counter=[shop.x+Math.min(shop.w-1,slot[0]),shop.y+Math.min(shop.h-.7,slot[1])];const u=(clock-43+index*1.3)/17;

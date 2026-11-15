@@ -15,8 +15,8 @@ export const JOBS=Object.freeze({
   research:{name:'地下研究',icon:'🧪',pay:0,food:0,fatigue:8,exposure:0},
   process:{name:'素材加工',icon:'🏭',pay:0,food:0,fatigue:8,exposure:0},
   rest:{name:'休息',icon:'🛌',pay:0,food:0,fatigue:-30,exposure:0},
-  auto:{name:'お任せ（バイト）',icon:'🤖',pay:0,food:0,fatigue:0,exposure:0},
-  autoin:{name:'お任せ（内部作業）',icon:'🏠',pay:0,food:0,fatigue:0,exposure:0}
+  auto:{name:'夜の稼ぎはおまかせ',icon:'🌙',pay:0,food:0,fatigue:0,exposure:0},
+  autoin:{name:'巣穴のお手伝い',icon:'🕯️',pay:0,food:0,fatigue:0,exposure:0}
 });
 const STAT_LABEL={str:'腕力',dex:'器用',int:'知性',soc:'社交',res:'耐腐敗'};
 export function jobEligible(r,id){const req=JOBS[id]?.req;if(!req||!r.level)return true;if((req.level??1)>(r.level??1))return false;return Object.entries(req.stats??{}).every(([k,v])=>(r.stats?.[k]??2)>=v);}

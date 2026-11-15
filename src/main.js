@@ -11,7 +11,7 @@ import * as CITY from './city.js';
 import { lotAt } from './city.js';
 import { FACILITIES, runProduction, ITEM_NAMES, SALVAGE_PACK } from './production.js';
 import * as ST from './storage.js';
-import { homeCapacity } from './agent.js';
+import { homeCapacity, homeAssignments } from './agent.js';
 import { FACILITY_DEFS, ITEMS, BUILD_CATEGORIES, TOOLS, RECIPES as CAT_RECIPES, recipesFor } from './catalog.js';
 import { dailyFacilityEffects } from './facility-effects.js';
 import { planCorridor, applyCorridor, buildingPreview } from './planning.js';
@@ -53,7 +53,7 @@ function migrateInitialLayout(w){const shop=w.buildings.find(b=>b.id==='shop'&&b
 let eventQueue=[], activeEvent=null, eventFrame=null, savePending=false, endingUnlocked=false;
 let ledger=createLedger(300,1);
 let surfaceEconomy=initialSurfaceEconomy();
-let marketDesk=F.initialFlea();let fleaTab='trend',fleaCategory='all';
+let marketDesk=F.initialFlea();let fleaTab='trend',fleaCategory='all';const fleaQty={};
 function moneyChange(amount, category, note, day=game.day){if(amount!==0)ledger=addTransaction(ledger,{day,amount,category,note});}
 let tool='inspect',pathStart=null,hoverTile=null,placement=null,resale=initialResale(),rented=[],owned=[],corridorChoice=null,buildChoice=null,economyDay=game.day,lastRentDue=0,demolishChoice=null; 
 const el=id=>document.getElementById(id);
@@ -260,6 +260,7 @@ function endPointer(evt){
       state.selected[state.layer]=tile;hoverTile=tile;updateSelection();
       const zHit=tool==='inspect'?residentAt(point):null;
       if(zHit){openColonist(zHit.id);}
+      else if(tool==='inspect'&&state.layer==='underground'){const b=worlds.underground.buildings.find(b=>tile.x>=b.x&&tile.x<b.x+b.w&&tile.y>=b.y&&tile.y<b.y+b.h);if(b)openBuilding(b.id);}
       else if(tool!=='inspect')buildAt(tile);else if(state.layer==='surface'){const lot=lotAt(tile.x,tile.y);if(lot)openLotDialog(lot);else openPropertyDialog(tile);}
     }
   }
@@ -309,7 +310,7 @@ function updateResalePanel(note=''){
     h('small',{},`新品 ${F.marketPrice(m,p.id,'new')}G ／ 美品 ${F.marketPrice(m,p.id,'mint')}G ／ 中古 ${F.marketPrice(m,p.id,'good')}G ／ 傷あり ${F.marketPrice(m,p.id,'damaged')}G ／ ジャンク ${F.marketPrice(m,p.id,'junk')}G`+(m.rating<p.unlock?`　🔒★${p.unlock}で取扱可`:''))));}
  }else if(fleaTab==='shop'){
   body.append(h('div',{class:'row'},h('small',{},'今日のネットショップ新着（毎朝入れ替わり）'),catSel()));
-  const offers=F.shopOffers(m,day,fleaCategory).filter(o=>!(m.shop.bought??[]).includes(o.oid));
+  const offers=F.shopOffers(m,day,fleaCategory).filter(o=>F.offerLeft(m,o)>0);
   if(!offers.length)body.append(h('small',{},'該当する出品はありません。'));
   const est=o=>{const fair=F.marketPrice(m,o.id,o.listed);return Math.round(fair-Math.ceil(fair*F.FEE_RATE)-F.SHIPPING.anonymous.cost-o.price-o.ship);};offers.sort((a,b)=>est(b)-est(a));
   for(const o of offers){const p=F.product(o.id),fair=F.marketPrice(m,o.id,o.listed),total=o.price+o.ship,margin=est(o);
@@ -317,7 +318,11 @@ function updateResalePanel(note=''){
    body.append(h('div',{class:'flea-card'},h('div',{class:'row'},h('b',{},p.name),h('span',{class:'tag'},condName(o.listed))),
     h('small',{},`出品者「${o.seller}」★${o.sellerRating}・${o.photo}／価格 ${o.price}G＋送料 ${o.ship?o.ship+'G':'込み'}`),
     h('div',{class:'row'},h('small',{},`この状態の相場 ${fair}G → 見込み利益 `),h('span',{class:'tag '+(margin>0?'good':'risk')},formatProfit(margin)),risky?h('span',{class:'tag risk'},'⚠ 怪しい'):null,
-     h('button',{on:()=>{const r=F.buyOffer(marketDesk,game.money,o,day);if(r.ok){marketDesk=r.market;game={...game,money:r.money};moneyChange(-r.cost,'フリマ仕入れ',`${p.name}（${o.seller}）`);}fleaAct(r,`${p.name}を購入。到着まで1〜2日。`);},disabled:o.locked},o.locked?`🔒★${p.unlock}`:`購入 ${total}G`))));}
+     null),
+    (()=>{const left=F.offerLeft(m,o);const q=Math.min(left,fleaQty[o.oid]??1);const sum=o.price*q+o.ship;
+     const step=d=>()=>{fleaQty[o.oid]=Math.max(1,Math.min(left,q+d));updateResalePanel();};
+     return h('div',{class:'row flea-qty'},h('small',{},`在庫 ${left}個（1個${o.price}G・送料はまとめて1回）`),h('button',{on:step(-1),disabled:q<=1},'−'),h('b',{},`${q}個`),h('button',{on:step(1),disabled:q>=left},'＋'),
+      h('button',{on:()=>{const r=F.buyOffer(marketDesk,game.money,o,day,q);if(r.ok){marketDesk=r.market;game={...game,money:r.money};moneyChange(-r.cost,'フリマ仕入れ',`${p.name}×${q}（${o.seller}）`);delete fleaQty[o.oid];}fleaAct(r,`${p.name}を${q}個購入。到着まで1〜2日。`);},disabled:o.locked},o.locked?`🔒★${p.unlock}`:`購入 ${sum}G`));})()));}
  }else if(fleaTab==='stock'){
   if(m.incoming.length){body.append(h('small',{},'🚚 配送中'));for(const p of m.incoming)body.append(h('div',{class:'flea-card'},h('div',{class:'row'},h('b',{},F.product(p.id).name),h('span',{class:'tag'},`第${p.arrive}日 到着予定`)),h('small',{},`表記：${condName(p.listed)}／${p.seller}／${p.cost}G`)));}
   if(!m.inventory.length)body.append(h('small',{},'在庫はありません。「仕入れ」から購入しましょう。'));
@@ -463,7 +468,7 @@ function renderStockAndRecipes(){
 // v2.5: per-building production plans (recipe + staff). Rows are rebuilt only when the building set changes,
 // so an open <select> is never destroyed by the per-tick refresh.
 function prodBuildings(){return worlds.underground.buildings.filter(b=>recipesFor(b.kind).length&&worlds.underground.connectivity?.[b.id]);}
-function staffCap(b){const a=(b.w??2)*(b.h??2);return a>=6?3:a>=4?2:1;}
+function staffCap(b){const a=(b.w??2)*(b.h??2);return (a>=6?3:a>=4?2:1)+((b.level??1)-1);}
 function planOf(b){const p=(colony.facilityPlans??{})[b.id];return {recipe:p?.recipe??(colony.recipePrefs??{})[b.kind]??'auto',staff:Math.max(0,Math.min(staffCap(b),p?.staff??1))};}
 function setPlan(b,patch){colony={...colony,facilityPlans:{...(colony.facilityPlans??{}),[b.id]:{...planOf(b),...patch}}};saveNow();renderFacilityPlans(true);}
 function internalSlots(){return {process:prodBuildings().reduce((n,b)=>n+planOf(b).staff,0),research:researchState(colony).active?Math.max(0,connectedLabs())*2:0};}
@@ -601,7 +606,7 @@ const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().home
         {const facs=Object.fromEntries(Object.keys(FACILITY_DEFS).map(k=>[k,connectedKind(k)]));const ex=r=>C.hasTrait(r,'dexterous')&&((r.id*7+completedDay*3)%10)<3;const sf=staffing(game.residents);const workers=[...sf.posts.flatMap(p=>p.workers.map(r=>({name:r.name,extra:ex(r),facility:p.b.kind,recipe:p.plan.recipe,building:p.b.id}))),...sf.left.map(r=>({name:r.name,extra:ex(r)}))];
          if(workers.length||facs.automation){const pr=runProduction(colony.inventory,game.money,workers,facs,{prefs:colony.recipePrefs??{},caps:ST.capacities(worlds.underground),goodsTotal:ST.goodsTotal,mods:currentMods()});colony={...colony,inventory:{...colony.inventory,...pr.inventory}};game={...game,money:pr.money};if(pr.fees)moneyChange(-pr.fees,'研究','素材加工の処理費',completedDay);productionLog=pr.log;}else productionLog=[];}
         {const cd=C.dailyColonists(game.residents,{washSlots:connectedKind('wash')*2,care:colony.inventory.care??0,decayRelief:(currentMods().impulseRelief?0.3:0)+currentMods().decayRelief});
-         game={...game,residents:cd.residents,alert:Math.min(100,game.alert+cd.alertAdd)};colony={...colony,inventory:{...colony.inventory,care:(colony.inventory.care??0)-cd.careUsed}};lastColonistReport=cd;
+         game={...game,residents:cd.residents,alert:Math.min(100,game.alert+cd.alertAdd)};colony={...colony,inventory:{...colony.inventory,care:(colony.inventory.care??0)-cd.careUsed}};lastColonistReport=cd;{const users={},w=worlds.underground;const need=game.residents.filter(r=>(r.decay??0)>=15).sort((a,b)=>(b.decay??0)-(a.decay??0));for(const [k,per] of [['wash',2],['repair',2],['cooler',4]])for(const b of w.buildings.filter(b=>b.kind===k&&w.connectivity?.[b.id]))for(let i=0;i<per*(b.level??1);i++){const r=need.shift();if(r)users[r.name]=b.id;}w.facilityUsers=users;}
          {const counts=Object.fromEntries(['lounge','theater','cooler','repair','security'].map(k=>[k,connectedKind(k)]));const fx=dailyFacilityEffects(game.residents,colony.inventory,counts,{outsideWorkers:game.residents.filter(r=>C.OUTSIDE.has(r.activeJob)).length,stage:colony.stage});
           game={...game,residents:fx.residents,alert:Math.max(0,Math.min(100,game.alert+fx.alertDelta))};colony={...colony,inventory:fx.inventory};facilityNotes=fx.notes;}
          if(cd.levelUps.length)queueScenes(cd.levelUps.map((u,i)=>({id:`lv-${completedDay}-${i}`,kind:'levelup',day:completedDay,message:`${u.name}がLv${u.level}に上がった！ スキルポイント+1`,reason:'夜勤・研究・加工の経験を積んだ'})));}
@@ -677,7 +682,7 @@ for(const section of [...document.querySelectorAll('.game-panel > [data-screen]'
 function showPanel(id){
  const oldSheetHeight=sheet.hidden?0:sheet.getBoundingClientRect().height;
  if(id===currentPanel&&id!==null)id=null;
- currentPanel=id;sheet.hidden=id===null;sheet.dataset.panel=id??'none';sheet.querySelector('#sheetTitle').textContent=titles[id]??'メニュー';
+ currentPanel=id;if(id===null&&tool!=='inspect')setTool('inspect');sheet.hidden=id===null;sheet.dataset.panel=id??'none';sheet.querySelector('#sheetTitle').textContent=titles[id]??'メニュー';
  for(const section of sheetBody.querySelectorAll('[data-screen]'))section.hidden=id===null||section.dataset.screen!==id;
  sheetBody.scrollTop=0;
  el('selectionPanel').hidden=id!==null;
@@ -837,7 +842,7 @@ function updateCityPanel(){
   g.fillStyle='#9fb6bb';g.fillText(`第${hs[0].day}日`,26,ch-3);g.fillText(`第${hs.at(-1).day}日`,cw-46,ch-3);g.fillText(`人口目盛り:最大${mx}人`,cw-110,10);}
  else{g.fillStyle='#9fb6bb';g.font='11px system-ui';g.fillText('翌朝からグラフが記録されます',36,ch/2);}
 }
-function connectedKind(kind){return worlds.underground.buildings.filter(b=>b.kind===kind&&worlds.underground.connectivity?.[b.id]).length;}
+function connectedKind(kind){return worlds.underground.buildings.filter(b=>b.kind===kind&&worlds.underground.connectivity?.[b.id]).reduce((n,b)=>n+(b.level??1),0);}
 function connectedLabs(){return worlds.underground.buildings.filter(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]).length;}
 function currentMods(){return researchMods(colony.completedResearch);}
 function updateResearchPanel(note=''){
@@ -903,3 +908,26 @@ el('raidGo')?.addEventListener('click',()=>{const r=game.residents.find(x=>Strin
  updateEconomy();updateColonyPanel();renderRaid();if(!game.residents.length)gameOver('全滅','最後のゾンビが地上で倒れた。地下タウンには誰も残っていない…');saveNow();});
 setInterval(renderRaid,1000);renderRaid();
 setTimeout(()=>{if(colony.gameOver)gameOver(colony.gameOver.title,colony.gameOver.body);},1500);
+
+// ===== v2.7: building detail & research-gated upgrades =====
+function maxLevelFor(){const n=colony.completedResearch.length;return n>=10?3:n>=4?2:1;}
+function upgradeCost(b){const f=FACILITY_DEFS[b.kind];return Math.round((f?.cost??80)*.6*(b.level??1)+40);}
+function levelEffectText(b){const lv=b.level??1,k=b.kind;
+ const m={home:`定員 ${homeCapacity(worlds.underground,b)}人（Lvごとに+2）`,wash:`毎朝 ${2*lv}人まで洗浄`,cooler:`毎朝 ${4*lv}人まで腐敗−3`,repair:`毎朝 ${2*lv}人まで腐敗−12`,pantry:`食料庫の容量 ×${lv}`,storage:`資材置き場の容量 ×${lv}`,lab:`研究室${lv}棟分の研究力`,security:`警戒 −${Math.min(2,lv)}/日`,generator:`電力 ${3*lv}回分/夜`,automation:`無人加工 ${2*lv}回/夜`};
+ if(m[k])return m[k];if(recipesFor(k).length)return `配属人数の上限 ${staffCap(b)}人`;if(k==='lounge')return `娯楽効果 ×${lv}`;return '';}
+function openBuilding(id){const w=worlds.underground,b=w.buildings.find(x=>x.id===id);if(!b)return;const f=FACILITY_DEFS[b.kind]??{icon:'🏠',name:b.name,desc:b.description};const lv=b.level??1,mx=maxLevelFor();
+ const d=el('propertyDialog');el('propertyTitle').textContent=`${f.icon} ${b.name}　Lv${lv}`;
+ const lines=[f.desc??b.description??'',`大きさ ${b.w}×${b.h}／${w.connectivity?.[b.id]?'✓ 通路に接続':'⚠ 通路未接続（利用停止中）'}`,levelEffectText(b)?`現在の効果：${levelEffectText(b)}`:''];
+ if(b.kind==='home'){const a=homeAssignments(game,w);const who=game.residents.filter(r=>a[r.id]?.id===b.id).map(r=>r.name);lines.push(`住んでいる住民：${who.join('・')||'なし'}`);}
+ if(recipesFor(b.kind).length){const pl=planOf(b);const post=staffing(game.residents).posts.find(p=>p.b.id===b.id);lines.push(`生産：${pl.recipe==='auto'?'おまかせ':CAT_RECIPES[pl.recipe].name}／人数 ${pl.staff}/${staffCap(b)}`,`配属：${post?.workers.map(r=>r.name).join('・')||'なし'}`);}
+ const users=Object.entries(w.facilityUsers??{}).filter(([,v])=>v===b.id).map(([n])=>n);if(users.length)lines.push(`今日の利用者：${users.join('・')}`);
+ el('propertyDetails').textContent=lines.filter(Boolean).join('\n');
+ const host=el('propertyDialogActions');host.replaceChildren();
+ const upg=['home','wash','cooler','repair','pantry','storage','lab','security','generator','automation','lounge'].includes(b.kind)||recipesFor(b.kind).length>0;
+ if(!upg){const s=document.createElement('small');s.textContent='この施設は強化の対象外です。';host.append(s);}
+ else if(lv<3){const cost=upgradeCost(b);const btn=document.createElement('button');const can=lv<mx;
+  btn.textContent=can?`⬆ Lv${lv+1}に強化（${cost}G）`:`🔒 Lv${lv+1}：研究を${lv+1===2?4:10}件完了で解放（現在${colony.completedResearch.length}件）`;btn.disabled=!can||game.money<cost;
+  btn.addEventListener('click',()=>{if(game.money<cost)return;b.level=lv+1;game={...game,money:game.money-cost};moneyChange(-cost,'建設',`${b.name}をLv${lv+1}に強化`);updateEconomy();updateColonyPanel();renderFacilityPlans(true);saveNow();openBuilding(id);});
+  host.append(btn);const note=document.createElement('small');note.textContent=can?`強化後：Lv${lv+1}で効果アップ${game.money<cost?'（資金不足）':''}`:'研究ツリーを進めると強化できるようになります。';host.append(note);}
+ else{const s=document.createElement('small');s.textContent='最大レベルです。';host.append(s);}
+ if(!d.open)d.showModal();}

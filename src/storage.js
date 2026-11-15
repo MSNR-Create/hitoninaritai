@@ -4,7 +4,7 @@ export const FOOD_BASE=30,FOOD_PER_PANTRY=40,GOODS_BASE=30,GOODS_PER_STORAGE=60;
 import { ITEMS } from './catalog.js';
 export const GOODS=Object.freeze(Object.fromEntries(Object.entries(ITEMS).filter(([k])=>k!=='food').map(([k,v])=>[k,v.name])));
 export function capacities(world){
- const n=k=>world.buildings.filter(b=>b.kind===k&&(world.connectivity?.[b.id]??true)).length;
+ const n=k=>world.buildings.filter(b=>b.kind===k&&(world.connectivity?.[b.id]??true)).reduce((a,b)=>a+(b.level??1),0);
  return {food:FOOD_BASE+FOOD_PER_PANTRY*n('pantry'),goods:GOODS_BASE+GOODS_PER_STORAGE*n('storage'),pantries:n('pantry'),storages:n('storage')};
 }
 export const goodsTotal=inv=>Object.keys(GOODS).reduce((s,k)=>s+(inv[k]??0),0);
