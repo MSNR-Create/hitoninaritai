@@ -23,11 +23,25 @@ export function tunnelRoute(world,a,b){
 function walk(world,a,b,t){const pts=tunnelRoute(world,a,b);if(pts.length<=2)return along(a,b,t);
  const seg=pts.slice(1).map((p,i)=>Math.hypot(p[0]-pts[i][0],p[1]-pts[i][1]));const total=seg.reduce((s,v)=>s+v,0);let d=Math.max(0,Math.min(1,t))*total;
  for(let i=0;i<seg.length;i++){if(d<=seg[i]||i===seg.length-1)return along(pts[i],pts[i+1],seg[i]?Math.min(1,d/seg[i]):1);d-=seg[i];}return along(a,b,1);}
+// v2.4 each resident belongs to one home; homes fill evenly up to their own capacity.
+export function homeCapacity(world,b){const homes=world.buildings.filter(x=>x.kind==='home');return (homes[0]===b?5:2)+(world.homeBonus??0);}
+export function homeAssignments(game,world){
+ const homes=(world?.buildings??[]).filter(b=>b.kind==='home'&&(world.connectivity?.[b.id]??true));if(!homes.length)return {};
+ const occ=new Map(homes.map(h=>[h.id,0])),caps=new Map(homes.map(h=>[h.id,homeCapacity(world,h)]));const out={};
+ for(const r of game.residents){let best=null;for(const h of homes){const o=occ.get(h.id),c=caps.get(h.id);if(o>=c)continue;if(!best||o/c<occ.get(best.id)/caps.get(best.id))best=h;}
+  best??=homes[0];out[r.id]={id:best.id,slot:occ.get(best.id)};occ.set(best.id,occ.get(best.id)+1);}
+ return out;}
+function homeSpot(game,resident,world){const a=homeAssignments(game,world)[resident.id];if(!a)return null;const b=world.buildings.find(x=>x.id===a.id);const j=a.slot;
+ return [b.x+.05+(j%b.w)*Math.min(.85,(b.w-.7)/Math.max(1,b.w-1)),b.y+.05+(Math.floor(j/b.w)%b.h)*Math.min(.8,(b.h-.7)/Math.max(1,b.h-1))];}
+// v2.4 role workplace: the facility kind each processing resident used last night (world.workPlaces), else any.
+function workSpot(game,resident,world,kinds,idx){const fac=(world?.buildings??[]).filter(b=>kinds.includes(b.kind));if(!fac.length)return null;
+ const want=world.workPlaces?.[resident.name];const pool=want?fac.filter(b=>b.kind===want):fac;const b=(pool.length?pool:fac)[Math.max(0,idx)%(pool.length||fac.length)];
+ return {b,pt:[b.x+.1+(idx%2)*Math.min(.8,b.w-1.1),b.y+.5]};}
+const PROCESS_KINDS=['sorting','extractor','mushroom','kitchen','farm','water','chemical','culture','recycler','workshop','disguise','archives','lounge'];
 export function residentVisual(game,resident,world=null){
   const index=game.residents.findIndex(r=>r.id===resident.id);
   if(index<0)throw new Error('Resident absent');
-  const homeBuilding=world?.buildings?.find(b=>b.kind==='home');
-  const home=homeBuilding?[homeBuilding.x+.45+(index%3)*Math.min(.65,(homeBuilding.w-.7)/3),homeBuilding.y+.4+(index%2)*Math.min(.7,(homeBuilding.h-.6)/2)]:HOMES[index%HOMES.length];
+  const home=homeSpot(game,resident,world)??HOMES[index%HOMES.length];
   const clock=game.tick%120;
   // During the day: return from previous shift, rest at home and socialize.
   if(resident.strikeDays>0)return {layer:'underground',x:home[0],y:home[1],status:'ストライキ中',activity:'strike',reason:'疲労または配給不足のため勤務を拒否。休息と配給で回復します'};
@@ -43,13 +57,18 @@ export function residentVisual(game,resident,world=null){
     const move=Math.sin((clock-43)/17*Math.PI)*.85;
     return {layer:'underground',x:home[0]+move,y:home[1]+move*.25,status:'地下で生活',activity:'walk',reason:'次の勤務まで地下で過ごしています'};
   }
-  if(resident.activeJob==='process'){const fac=world?.buildings?.filter(b=>b.kind==='extractor'||b.kind==='sorting')??[];const pIdx=game.residents.filter(r=>r.activeJob==='process').findIndex(r=>r.id===resident.id);const b=fac[Math.max(0,pIdx)%Math.max(1,fac.length)];if(b)return {layer:'underground',x:b.x+.1+(pIdx%2)*.8,y:b.y+.55,status:'素材加工中',activity:'research',bubble:(clock+index*4)%16<3?(b.kind==='extractor'?'抽出中…':'仕分け仕分け'):null,reason:'地下の加工施設で作業しています'};}
-  if(resident.activeJob==='research'){const lab=world?.buildings?.find(b=>b.kind==='lab');const rIdx=game.residents.filter(r=>r.activeJob==='research').findIndex(r=>r.id===resident.id);const seat=[[.05,.5],[.05,1.45],[1.1,1.45],[1.1,.5]][Math.max(0,rIdx)%4];return {layer:'underground',x:lab?lab.x+seat[0]:9.1,y:lab?lab.y+seat[1]:6.5,status:'研究中',activity:'research',bubble:(clock+index*4)%14<3?'ふむふむ…':null,reason:'地下研究室で研究を進めています'};}
+  if(resident.activeJob==='process'||resident.activeJob==='research'){
+    const idx=game.residents.filter(r=>r.activeJob===resident.activeJob).findIndex(r=>r.id===resident.id);
+    const spot=resident.activeJob==='research'?workSpot(game,resident,world,['lab'],idx):workSpot(game,resident,world,PROCESS_KINDS,idx);
+    const dest=spot?.pt??[9.1,6.5],night=clock-60;
+    if(night>=0&&night<12)return {layer:'underground',...walk(world,home,dest,night/11),status:resident.activeJob==='research'?'研究室へ移動':'作業場へ移動',activity:'walk',reason:'担当の施設へ向かっています'};
+    const research=resident.activeJob==='research';const nm=spot?.b?.name??'';
+    return {layer:'underground',x:dest[0],y:dest[1],status:research?'研究中':'素材加工中',activity:'research',bubble:(clock+index*4)%15<3?(research?'ふむふむ…':'作業中…'):null,reason:research?'地下研究室で研究を進めています':`${nm}で作業しています`};}
   if(resident.activeJob==='rest')return {layer:'underground',x:home[0],y:home[1],status:'休息中',activity:'sleep',reason:resident.fatigue>=85?'疲労が高いため夜勤より休息を優先':'休息を指示されているため地下にいます'};
   const night=clock-60;
   if(night<14)return {layer:'underground',...walk(world,home,HUB,night/13),status:'出勤中',reason:'割り当てられた夜勤へ向かっています'};
   if(night<20)return {layer:'surface',...along(SURFACE_HUB,SURFACE_STREET,(night-14)/5),status:'地上へ移動',reason:'地下の出口から人間社会へ出ています'};
-  if(night<52)return {layer:'outside',x:0,y:0,status:resident.activeJob==='forage'?'食料調達中':resident.activeJob==='salvage'?'夜間回収中':'外部勤務中',reason:'地図の外で勤務しています。翌朝に成果が確定します'};
+  if(night<52)return {layer:'outside',x:0,y:0,status:resident.activeJob==='forage'?'食料調達中':resident.activeJob==='salvage'?'夜間回収中':resident.activeJob==='shopping'?'買い出し中':'アルバイト中',reason:'地図の外で勤務しています。翌朝に成果が確定します'};
   return {layer:'surface',...along(SURFACE_STREET,SURFACE_HUB,(night-52)/7),status:'帰還中',reason:'夜勤を終えて地下への入口へ向かっています'};
 }
 export function visibleResidents(game,layer,world=null){return game.residents.map((resident,index)=>({resident,index,...residentVisual(game,resident,layer==='underground'?world:null)})).filter(r=>r.layer===layer);}

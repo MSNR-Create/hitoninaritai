@@ -2,7 +2,7 @@ import { clamp, hitTile, tileToWorld, projectedTile, projectedFootprint, worldTo
 import { makeWorlds, describeTile } from './world.js';
 import { drawScene } from './render.js';
 import { boundCamera, makePinch, applyPinch } from './camera.js';
-import { initialGame, stepGame, assignJob, JOBS, moodOf } from './simulation.js';
+import { initialGame, stepGame, assignJob, JOBS, moodOf, jobEligible, jobReqText, SHIFT_HOURS } from './simulation.js';
 import { residentVisual, visibleResidents } from './agent.js';
 import { applyConstruction, canUnlock, zoneAt, connectedFacilities, FACILITY_SIZES, FACILITY_NAMES, BUILD_COSTS } from './construction.js';
 import { MAP_SIZE } from './geometry.js';
@@ -11,6 +11,7 @@ import * as CITY from './city.js';
 import { lotAt } from './city.js';
 import { FACILITIES, runProduction, ITEM_NAMES, SALVAGE_PACK } from './production.js';
 import * as ST from './storage.js';
+import { homeCapacity } from './agent.js';
 import { FACILITY_DEFS, ITEMS, BUILD_CATEGORIES, TOOLS, RECIPES as CAT_RECIPES, recipesFor } from './catalog.js';
 import { dailyFacilityEffects } from './facility-effects.js';
 import { planCorridor, applyCorridor, buildingPreview } from './planning.js';
@@ -42,7 +43,7 @@ let buildRotated=false;
 function sizeOf(kind){const s0=FACILITY_SIZES[kind];return buildRotated?[s0[1],s0[0]]:s0;}
 function rotateCandidate(){if(!buildChoice)return;buildRotated=!buildRotated;const [w,h]=sizeOf(buildChoice.kind);buildChoice={...buildChoice,w,h,x:Math.min(buildChoice.x,MAP_SIZE-w),y:Math.min(buildChoice.y,MAP_SIZE-h)};const v=buildingPreview(worlds.underground,buildChoice.kind,buildChoice.x,buildChoice.y,game.money,buildRotated);status(`向きを変更：${v.w}×${v.h}・${v.ok?'設置可能。範囲内をタップで建設':'設置不可・'+v.reason}`);updatePlacement();}
 function ensureAllColonists(){game={...game,residents:game.residents.map(C.ensureColonist)};}
-ensureAllColonists();let productionLog=[],lastColonistReport=null,facilityNotes=[];
+ensureAllColonists();let productionLog=[],lastColonistReport=null,facilityNotes=[],shoppingNote='';
 const BUILDABLE=Object.keys(FACILITY_DEFS);
 const HOLD_MS=260;
 // v1.11: v1.10以前の初期配給所(10,8)は通路行y=8をまたいでいたため1マス南へ移し、通路をつなぎ直す。
@@ -401,7 +402,7 @@ function refreshResidentRows(){
    line=document.createElement('div');line.className='resident-row';line.dataset.id=String(r.id);
    const name=document.createElement('span'),select=document.createElement('select');
    select.setAttribute('aria-label',`${r.name}の仕事`);
-   for(const [id,job] of Object.entries(JOBS)){const option=document.createElement('option');option.value=id;option.textContent=job.name;select.append(option);}
+   for(const [id,job] of Object.entries(JOBS)){const option=document.createElement('option');option.value=id;option.dataset.base=`${job.icon} ${job.name}${job.wage?`（時給${job.wage}G×${SHIFT_HOURS}h）`:''}`;option.textContent=option.dataset.base;select.append(option);}
    select.addEventListener('change',()=>{game=assignJob(game,r.id,select.value);updateEconomy();});
    const info=document.createElement('button');info.type='button';info.textContent='関係・履歴';info.className='detail-btn';info.addEventListener('click',()=>{showResidentDetail(r.id);showPanel('social');});
    const grow=document.createElement('button');grow.type='button';grow.className='detail-btn grow-btn';grow.addEventListener('click',()=>openColonist(r.id));
@@ -410,6 +411,7 @@ function refreshResidentRows(){
   const visual=residentVisual(game,r),name=line.firstElementChild,select=line.querySelector('select');
   const cr=C.ensureColonist(r),st=C.decayStage(cr.decay);name.textContent=`${r.name} Lv${cr.level} · 疲労${r.fatigue} · 衝動${r.impulse??0} · 腐敗${Math.round(cr.decay)}(${st.name}) · 臭気${C.odorOf(cr)} · ${r.strikeDays>0?'✊ストライキ · ':''}${visual.status}`;
   line.querySelector('.grow-btn').textContent=cr.sp>0?`育成 ⬆${cr.sp}`:'育成';
+  for(const o of line.querySelector('select').options){const ok=jobEligible(cr,o.value);o.disabled=!ok;o.textContent=ok?o.dataset.base:`🔒 ${o.dataset.base}（要${jobReqText(o.value)}）`;}
   name.title=visual.reason;
   // Keep the select DOM mounted and don't touch its value during native selection.
   if(document.activeElement!==select && select.value!==r.job)select.value=r.job;
@@ -451,6 +453,10 @@ function updateSocialPanel(){
  el('neighborSummary').textContent=social.neighbors.map(n=>`${n.name}：${n.converted?'眷属になった':'人間として生活中'}`).join(' / ');
 }
 function renderStockAndRecipes(){
+ const sl=colony.shoppingList??{};let total=0,packs=0;
+ for(const t of document.querySelectorAll('#supplyGrid [data-supply]')){const k=t.dataset.supply,n=sl[k]??0;let q=t.querySelector('.qty');if(n&&!q){q=document.createElement('span');q.className='qty';t.append(q);}if(q){if(n)q.textContent='×'+n;else q.remove();}t.classList.toggle('active',n>0);if(n){total+=n*Math.ceil(ITEMS[k].buy[1]*currentMods().supplyMul);packs+=n;}}
+ const shoppers=game.residents.filter(r=>r.job==='shopping').length;
+ el('shoppingSummary').textContent=packs?`今夜の買い出し：${packs}パック・約${total}G（担当1人で3パック。担当${shoppers}人${shoppers*3<packs?'＋お任せの住民が手伝います':''}）`:'アイコンをタップしてリストに追加。夜に「🛒買い出し」担当が地上で買ってきます。'+(shoppingNote?`　前夜：${shoppingNote}`:'');
  const inv=colony.inventory,caps=ST.capacities(worlds.underground),g=el('stockGrid');if(!g)return;g.replaceChildren();
  el('stockSummary').textContent=`🍞${inv.food}/${caps.food}　📦${ST.goodsTotal(inv)}/${caps.goods}`;
  for(const [k,it] of Object.entries(ITEMS)){const n=inv[k]??0;if(!n&&!it.buy&&!['residue','labwaste'].includes(k))continue;const t=tileEl(it.icon,it.name,'');t.disabled=true;t.classList.toggle('zero',!n);const q=document.createElement('span');q.className='qty';q.textContent=n;t.append(q);t.querySelector('.sub').remove();g.append(t);}
@@ -474,11 +480,13 @@ function updateColonyPanel(note=''){
 {const grid=el('supplyGrid');for(const [k,it] of Object.entries(ITEMS)){if(!it.buy)continue;grid.append(tileEl(it.icon,it.name,`+${it.buy[0]}・${it.buy[1]}G`,{'data-supply':k}));}}
 for(const button of document.querySelectorAll('[data-supply]'))button.addEventListener('click',()=>{
  {const key=button.dataset.supply,qty=key==='food'?currentMods().foodPack:SUPPLIES[key]?.pack??ITEMS[key]?.buy?.[0]??1;const caps=ST.capacities(worlds.underground);if(ST.room(colony.inventory,key,caps)<qty){updateColonyPanel(key==='food'?`食料庫が満杯です（${colony.inventory.food}/${caps.food}）。食料庫を建てると増えます。`:`資材置き場が満杯です（${ST.goodsTotal(colony.inventory)}/${caps.goods}）。資材置き場を建てると増えます。`);return;}}
+ {const key=button.dataset.supply;colony={...colony,shoppingList:{...(colony.shoppingList??{}),[key]:Math.min(9,((colony.shoppingList??{})[key]??0)+1)}};saveNow();updateColonyPanel(`${ITEMS[key].icon}${ITEMS[key].name}を買い出しリストに追加。夜に「買い出し」担当が地上で購入してきます。`);return;}
  if(!SUPPLIES[button.dataset.supply]){const key=button.dataset.supply,it=ITEMS[key],price=Math.ceil(it.buy[1]*currentMods().supplyMul);if(game.money<price){updateColonyPanel('資金不足');return;}game={...game,money:game.money-price};colony={...colony,inventory:{...colony.inventory,[key]:(colony.inventory[key]??0)+it.buy[0]}};moneyChange(-price,'生活物資仕入れ',it.name);updateEconomy();updateColonyPanel(`${it.icon}${it.name}を${it.buy[0]}個仕入れ（−${price}G）`);saveNow();return;}
  const r=buySupply(colony,game.money,button.dataset.supply,1,currentMods());
  if(r.ok){colony=r.colony;game={...game,money:r.money,food:colony.inventory.food};moneyChange(-r.cost,'生活物資仕入れ',SUPPLIES[button.dataset.supply].name+' '+r.quantity+'個');}
  updateEconomy();updateColonyPanel(r.ok?`${SUPPLIES[button.dataset.supply].name}を${r.quantity}個仕入れ（−${r.cost}G）`:r.reason);
 });
+el('clearShopping').addEventListener('click',()=>{colony={...colony,shoppingList:{}};saveNow();updateColonyPanel('買い出しリストを空にしました。');});
 el('rotateBuild').addEventListener('click',e=>{e.stopPropagation();rotateCandidate();});
 el('researchStart').addEventListener('click',()=>{
  if(!selectedTech)return;
@@ -531,15 +539,21 @@ el('clockNext').addEventListener('click',()=>{
 syncClockButtons();
 updateEconomy();
 function advanceOneTick(){
-const beforeTickMoney=game.money;game=stepGame({...game,mods:currentMods()});
+const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().homeBonus;game=stepGame({...game,mods:currentMods(),shoppingPacks:Object.values(colony.shoppingList??{}).reduce((a,b)=>a+b,0)});
       if(game.day!==economyDay){
         const completedDay=game.day-1;moneyChange(game.money-beforeTickMoney,'アルバイト','外部勤務の報酬',completedDay);const beforeEventsMoney=game.money;
         let refusedNote=[];const caps=ST.capacities(worlds.underground);
         {const t=ST.intake(colony.inventory,'food',game.lastReport.harvest,caps);colony={...colony,inventory:t.inventory};if(t.refused)refusedNote.push(`食料${t.refused}個（食料庫が満杯）`);}
         // v2.0: salvage → production chain, then colonist growth & body maintenance
+        {const list={...(colony.shoppingList??{})};let packs=(game.lastReport.shoppers??0)*3;const got=[];
+         for(const [key,n0] of Object.entries(list)){let n=n0;while(n>0&&packs>0){const it=ITEMS[key];const qty=key==='food'?currentMods().foodPack:it.buy[0];const price=Math.ceil(it.buy[1]*currentMods().supplyMul);
+           if(game.money<price){refusedNote.push(`${it.name}（資金不足）`);packs=0;break;}const t=ST.intake(colony.inventory,key,qty,caps);if(!t.accepted){refusedNote.push(`${it.name}（置き場が満杯）`);break;}
+           colony={...colony,inventory:t.inventory};game={...game,money:game.money-price};moneyChange(-price,'生活物資仕入れ',`買い出し：${it.name}`,completedDay);got.push(`${it.icon}${t.accepted}`);n--;packs--;}
+          if(n>0)list[key]=n;else delete list[key];}
+         colony={...colony,shoppingList:list};if(got.length)shoppingNote=`🛒買い出し：${got.join(' ')}`;else shoppingNote='';}
         if(game.lastReport.salvage){const t=ST.intake(colony.inventory,'salvage',game.lastReport.salvage,caps);colony={...colony,inventory:t.inventory};if(t.refused)refusedNote.push(`回収物${t.refused}個（資材置き場が満杯）`);}
         {const facs=Object.fromEntries(Object.keys(FACILITY_DEFS).map(k=>[k,connectedKind(k)]));const workers=game.residents.filter(r=>r.activeJob==='process').map(r=>({name:r.name,extra:C.hasTrait(r,'dexterous')&&((r.id*7+completedDay*3)%10)<3}));
-         if(workers.length||facs.automation){const pr=runProduction(colony.inventory,game.money,workers,facs,{prefs:colony.recipePrefs??{},caps:ST.capacities(worlds.underground),goodsTotal:ST.goodsTotal,mods:currentMods()});colony={...colony,inventory:{...colony.inventory,...pr.inventory}};game={...game,money:pr.money};if(pr.fees)moneyChange(-pr.fees,'研究','素材加工の処理費',completedDay);productionLog=pr.log;}else productionLog=[];}
+         if(workers.length||facs.automation){const pr=runProduction(colony.inventory,game.money,workers,facs,{prefs:colony.recipePrefs??{},caps:ST.capacities(worlds.underground),goodsTotal:ST.goodsTotal,mods:currentMods()});colony={...colony,inventory:{...colony.inventory,...pr.inventory}};game={...game,money:pr.money};if(pr.fees)moneyChange(-pr.fees,'研究','素材加工の処理費',completedDay);productionLog=pr.log;worlds.underground.workPlaces=Object.fromEntries(pr.log.filter(l=>l.ok&&l.recipe).map(l=>[l.worker,CAT_RECIPES[l.recipe].facility]));}else productionLog=[];}
         {const cd=C.dailyColonists(game.residents,{washSlots:connectedKind('wash')*2,care:colony.inventory.care??0,decayRelief:(currentMods().impulseRelief?0.3:0)+currentMods().decayRelief});
          game={...game,residents:cd.residents,alert:Math.min(100,game.alert+cd.alertAdd)};colony={...colony,inventory:{...colony.inventory,care:(colony.inventory.care??0)-cd.careUsed}};lastColonistReport=cd;
          {const counts=Object.fromEntries(['lounge','theater','cooler','repair','security'].map(k=>[k,connectedKind(k)]));const fx=dailyFacilityEffects(game.residents,colony.inventory,counts,{outsideWorkers:game.residents.filter(r=>C.OUTSIDE.has(r.activeJob)).length,stage:colony.stage});
@@ -611,7 +625,7 @@ viewport.appendChild(el('selectionPanel'));
 const sheet=document.createElement('div');sheet.id='mapSheet';sheet.className='map-sheet';sheet.hidden=true;
 const sheetHeader=document.createElement('div');sheetHeader.className='sheet-header';sheetHeader.innerHTML='<strong id="sheetTitle">メニュー</strong><button type="button" id="sheetClose" aria-label="パネルを閉じる">×</button>';
 const sheetBody=document.createElement('div');sheetBody.className='sheet-body';sheet.append(sheetHeader,sheetBody);viewport.append(sheet);
-const titles={city:'街の発展',jobs:'仕事と住民',build:'地下建設',supply:'配給・仕入れ',research:'研究ツリー',market:'フリマ経営',social:'人間関係',settings:'設定・セーブ'};
+const titles={city:'街の発展',supply:'物資・生産',jobs:'仕事と住民',build:'地下建設',research:'研究ツリー',market:'フリマ経営',social:'人間関係',settings:'設定・セーブ'};
 for(const section of [...document.querySelectorAll('.game-panel > [data-screen]')])sheetBody.append(section);
 function showPanel(id){
  const oldSheetHeight=sheet.hidden?0:sheet.getBoundingClientRect().height;
@@ -709,7 +723,7 @@ for(const id of Object.keys(statTitles)){
 }
 el('statsClose').addEventListener('click',()=>el('statsDialog').close());
 
-function colonyCapacity(){const homes=worlds.underground.buildings.filter(b=>b.kind==='home'&&worlds.underground.connectivity?.[b.id]).length;return 5+Math.max(0,homes-1)*2+homes*currentMods().homeBonus;}
+function colonyCapacity(){worlds.underground.homeBonus=currentMods().homeBonus;const hs=worlds.underground.buildings.filter(b=>b.kind==='home'&&worlds.underground.connectivity?.[b.id]);if(hs.length)return hs.reduce((n,b)=>n+homeCapacity(worlds.underground,b),0);const homes=worlds.underground.buildings.filter(b=>b.kind==='home'&&worlds.underground.connectivity?.[b.id]).length;return 5+Math.max(0,homes-1)*2+homes*currentMods().homeBonus;}
 function openColonist(id){
  const idx=game.residents.findIndex(r=>r.id===id);if(idx<0)return;let r=C.ensureColonist(game.residents[idx]);game.residents[idx]=r;
  const d=el('propertyDialog');el('propertyTitle').textContent=`${r.name}　Lv${r.level}（XP ${r.xp}/${C.LEVEL_XP[Math.min(9,r.level)]??'MAX'}）`;

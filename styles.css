@@ -246,3 +246,4 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 .research-tree{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .research-node .tic{display:block;font-size:20px;line-height:1.1}
 .viewport{position:relative}.rotate-build{position:absolute;z-index:6;width:44px;height:44px;border-radius:50%;border:2px solid #f2d77f;background:#3a3420;color:#fff7dc;font-size:24px;font-weight:700;line-height:1;box-shadow:0 3px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}.rotate-build[hidden]{display:none}
+.mini-btn{padding:4px 8px;font-size:11px;border-radius:8px;border:1px solid #8a5a4a;background:#4a2a24;color:#f8dcd0}

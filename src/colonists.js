@@ -35,11 +35,15 @@ export function decayStage(d){return d>=85?{name:'危機',eff:0,color:'#e05a4a'}
 export function workEfficiency(r,job){
  const s=r.stats??{};let m=decayStage(r.decay??0).eff;
  if(job==='clean')m*=1+.04*((s.str??2)-2)+(hasTrait(r,'strong')?.15:0);
+ if(job==='konbini')m*=1+.04*((s.soc??2)-2);
+ if(job==='delivery')m*=1+.04*((s.dex??2)-2);
+ if(job==='guard')m*=1+.03*((s.str??2)-2);
+ if(job==='labassist')m*=1+.05*((s.int??2)-2);
  if(job==='warehouse')m*=1+.04*((s.dex??2)-2)+(hasTrait(r,'strong')?.15:0)-(hasTrait(r,'clumsy')?.12:0);
  return Math.round(m*100)/100;
 }
 export function researchPower(r){return Math.round((1+.05*((r.stats?.int??2)-2)+(hasTrait(r,'scholar')?.15:0))*decayStage(r.decay??0).eff*100)/100;}
-export const OUTSIDE=new Set(['clean','warehouse','forage','salvage']);
+export const OUTSIDE=new Set(['clean','warehouse','forage','salvage','konbini','delivery','guard','labassist','shopping']);
 /** Can this resident safely take an outside job tonight? */
 export function canGoOutside(r){return (r.decay??0)<85&&odorOf(r)<70;}
 export function levelOf(xp){let l=1;for(let i=0;i<LEVEL_XP.length;i++)if(xp>=LEVEL_XP[i])l=i+1;return Math.min(10,l);}
