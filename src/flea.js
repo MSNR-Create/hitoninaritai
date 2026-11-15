@@ -85,18 +85,22 @@ export function shopOffers(m,day,category='all'){
    const lie=r(seed+6)<Math.max(0,(4.4-sellerRating)*.15+(discount<.6?.15:0));
    const truth=lie?condShift(listed,r(seed+7)<.8?-1:-2):listed;
    const fake=r(seed+8)<p.fake*(discount<.6?2:.6)*(sellerRating<3.5?1.5:.3);
-   out.push({oid:`${day}-${p.id}-${k}`,id:p.id,listed,price,ship,seller:SELLERS[Math.floor(r(seed+9)*SELLERS.length)],sellerRating,photo:r(seed+10)<.4?'ぼやけた写真':'写真多め',truth,fake,locked:m.rating<p.unlock});}
+   out.push({oid:`${day}-${p.id}-${k}`,id:p.id,listed,price,ship,seller:SELLERS[Math.floor(r(seed+9)*SELLERS.length)],sellerRating,photo:r(seed+10)<.4?'ぼやけた写真':'写真多め',truth,fake,stock:1+Math.floor(r(seed+11)*(p.base<40?6:p.base<120?3:1.6)),locked:m.rating<p.unlock});}
  });
  return out;
 }
-export function buyOffer(m,money,offer,day){
+export function offerLeft(m,offer){const got=(m.shop.boughtQty??{})[offer.oid]??((m.shop.bought??[]).includes(offer.oid)?(offer.stock??1):0);return Math.max(0,(offer.stock??1)-got);}
+export function buyOffer(m,money,offer,day,qty=1){
  if(!offer)return {ok:false,reason:'商品が見つかりません'};
  if(offer.locked)return {ok:false,reason:`評価★${product(offer.id).unlock}以上で取扱可能`};
- if(m.shop.bought?.includes(offer.oid))return {ok:false,reason:'この商品は売り切れです'};
- const total=offer.price+offer.ship;if(money<total)return {ok:false,reason:`資金不足（${total}G必要）`};
- const arrive=day+1+(r(day*3+offer.price)<.4?1:0);
- const parcel={uid:m.nextId,id:offer.id,listed:offer.listed,condition:offer.truth,fake:offer.fake,cost:total,day,arrive,seller:offer.seller,sellerRating:offer.sellerRating};
- return {ok:true,cost:total,money:money-total,market:{...m,nextId:m.nextId+1,incoming:[...m.incoming,parcel],shop:{...m.shop,bought:[...(m.shop.bought??[]).filter(x=>x.startsWith(day+'-')),offer.oid]}}};
+ qty=Math.floor(qty);const left=offerLeft(m,offer);if(left<=0)return {ok:false,reason:'この商品は売り切れです'};
+ if(!(qty>=1)||qty>left)return {ok:false,reason:`在庫は${left}個までです`};
+ const total=offer.price*qty+offer.ship;if(money<total)return {ok:false,reason:`資金不足（${total}G必要）`};
+ const arrive=day+1+(r(day*3+offer.price)<.4?1:0);const each=Math.round(total/qty);let id=m.nextId;const parcels=[];
+ for(let i=0;i<qty;i++)parcels.push({uid:id++,id:offer.id,listed:offer.listed,condition:offer.truth,fake:offer.fake,cost:i===0?total-each*(qty-1):each,day,arrive,seller:offer.seller,sellerRating:offer.sellerRating});
+ const bq=Object.fromEntries(Object.entries(m.shop.boughtQty??{}).filter(([k])=>k.startsWith(day+'-')));bq[offer.oid]=(bq[offer.oid]??0)+qty;
+ const bought=[...(m.shop.bought??[]).filter(x=>x.startsWith(day+'-')&&x!==offer.oid),...(left-qty<=0?[offer.oid]:[])];
+ return {ok:true,qty,cost:total,money:money-total,market:{...m,nextId:id,incoming:[...m.incoming,...parcels],shop:{...m.shop,bought,boughtQty:bq}}};
 }
 
 // ---------- 在庫作業 ----------

@@ -13,4 +13,4 @@ test('full storage refuses intake but never deletes existing stock',()=>{const c
  const over=ST.intake({food:40},'food',5,caps);assert.equal(over.inventory.food,40);assert.equal(over.accepted,0);
  assert.equal(ST.room({care:20,salvage:10},'samples',caps),0);});
 test('build palette lists 食料庫 and 資材置き場; locked facilities get disabled in UI code',async()=>{const fs=await import('node:fs');const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8'),main=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
- assert.match(html,/data-tool="pantry"/);assert.match(html,/data-tool="storage"/);assert.match(main,/b\.disabled=!!locked\|\|poor/);assert.match(main,/function residentAt\(point\)/);});
+ const cat=fs.readFileSync(new URL('../src/catalog.js',import.meta.url),'utf8');assert.match(cat,/pantry:\{name:'食料庫'/);assert.match(cat,/storage:\{name:'資材置き場'/);assert.match(html,/id="buildGrid"/);assert.match(main,/b\.disabled=!!locked\|\|poor/);assert.match(main,/function residentAt\(point\)/);});

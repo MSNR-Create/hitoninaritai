@@ -24,4 +24,4 @@ export function applyCorridor(world,plan,money){
  for(const p of plan.newTiles){if(!within(p.x,p.y)||copy.closed.has(k(p.x,p.y))||occupied(copy,p.x,p.y))return {ok:false,reason:'設置先が変更されました',world,money};copy.paths.add(k(p.x,p.y))}
  return {ok:true,world:copy,money:money-plan.cost,cost:plan.cost};
 }
-export function buildingPreview(world,kind,x,y,money){const size=FACILITY_SIZES[kind];if(!size)return {ok:false,reason:'不正な施設です'};return {...canBuild(world,kind,x,y,money),x,y,w:size[0],h:size[1]};}
+export function buildingPreview(world,kind,x,y,money,rotated=false){const s0=FACILITY_SIZES[kind];if(!s0)return {ok:false,reason:'不正な施設です'};const size=rotated?[s0[1],s0[0]]:s0;return {...canBuild(world,kind,x,y,money,rotated),x,y,w:size[0],h:size[1]};}

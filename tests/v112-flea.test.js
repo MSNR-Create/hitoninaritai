@@ -7,8 +7,8 @@ test('market value fluctuates daily and events spike/crash it',()=>{let m=F.init
  for(let d=2;d<120;d++){const r=F.advanceFlea(m,d);m=r.market;seen.add(m.trends.card.f);buzz+=r.events.filter(e=>e.kind==='flea_buzz').length;crash+=r.events.filter(e=>e.kind==='flea_crash').length;}
  assert.ok(seen.size>50);assert.ok(buzz>0&&crash>0);for(const p of F.CATALOG)assert.ok(m.trends[p.id].f>=.4&&m.trends[p.id].f<=2.6);});
 test('shop → incoming → arrival with hidden truth revealed',()=>{let m=F.initialFlea();const offers=F.shopOffers(m,3);assert.ok(offers.length>5);assert.deepEqual(offers,F.shopOffers(m,3));
- const o=offers.find(x=>!x.locked);const b=F.buyOffer(m,rich,o,3);assert.ok(b.ok);assert.equal(F.buyOffer(b.market,rich,o,3).ok,false,'sold out');
- m=b.market;assert.equal(m.incoming.length,1);let d=3;while(m.incoming.length){d++;m=F.advanceFlea(m,d).market;}
+ const o=offers.find(x=>!x.locked);const b=F.buyOffer(m,rich,o,3,o.stock);assert.ok(b.ok);assert.equal(F.buyOffer(b.market,rich,o,3).ok,false,'sold out');assert.equal(F.buyOffer(m,rich,o,3,o.stock+1).ok,false,'over stock');
+ m=b.market;assert.equal(m.incoming.length,o.stock);let d=3;while(m.incoming.length){d++;m=F.advanceFlea(m,d).market;}
  assert.equal(m.inventory[0].condition,o.truth);assert.equal(m.inventory[0].fake,o.fake);});
 test('cheap offers from low-rated sellers are riskier over many days',()=>{let risky=0,riskyBad=0,safe=0,safeBad=0;const m=F.initialFlea();
  for(let d=1;d<200;d++)for(const o of F.shopOffers(m,d)){const bad=o.fake||o.truth!==o.listed;if(o.sellerRating<3.3&&o.price<F.marketPrice(m,o.id,o.listed)*.7){risky++;riskyBad+=bad;}else if(o.sellerRating>4.3){safe++;safeBad+=bad;}}

@@ -31,7 +31,7 @@ export function vehiclesAt(seconds,humans=34,trust=55){
   const along=direction===1?travel:23.9-travel;
   const x=vertical?lane:along,y=vertical?along:lane;
   // Avoid random parked sprites and road boundaries.
-  res.push({id:i,x,y,axis:vertical?'y':'x',color:['#eab77b','#83aebd','#c39ab9','#d9d7a6','#86b6a1'][i%5]});
+  res.push({id:i,x,y,dir:direction,axis:vertical?'y':'x',color:['#eab77b','#83aebd','#c39ab9','#d9d7a6','#86b6a1'][i%5]});
  }
  return res;
 }

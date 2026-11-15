@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {makeWorlds} from '../src/world.js';
+import {applyConstruction,canBuild} from '../src/construction.js';
+import {buildingPreview} from '../src/planning.js';
+import {tunnelRoute} from '../src/agent.js';
+test('rotated placement swaps footprint and is stored on the building',()=>{const w=makeWorlds().underground;
+ const a=buildingPreview(w,'home',9,9,999,false),b=buildingPreview(w,'home',9,9,999,true);assert.deepEqual([a.w,a.h],[3,2]);assert.deepEqual([b.w,b.h],[2,3]);
+ let spot=null;for(let x=1;x<22&&!spot;x++)for(let y=1;y<22&&!spot;y++)if(canBuild(w,'home',x,y,999,true).ok)spot={x,y};
+ assert.ok(spot);const r=applyConstruction(w,{type:'build',kind:'home',...spot,rotated:true},999);assert.ok(r.ok);const nb=r.world.buildings.at(-1);assert.equal(nb.w,2);assert.equal(nb.h,3);assert.equal(nb.rot,1);});
+test('residents route only through dug tiles (corridors and facility floors)',()=>{const w=makeWorlds().underground;
+ const dug=new Set(w.paths);for(const b of w.buildings)for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)dug.add(x+','+y);
+ const pts=tunnelRoute(w,[4.7,5.5],[10.1,10.55]);assert.ok(pts.length>3);for(const p of pts.slice(1,-1))assert.ok(dug.has(p.join(',')),p.join(','));
+ for(let i=1;i<pts.length-2;i++)assert.equal(Math.abs(pts[i][0]-pts[i+1][0])+Math.abs(pts[i][1]-pts[i+1][1]),1,'4-neighbour steps');});

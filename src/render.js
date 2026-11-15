@@ -1,3 +1,4 @@
+import { FACILITY_DEFS } from './catalog.js';
 import { visibleResidents } from './agent.js';
 import {streetTileKind,vehiclesAt,pedestriansAt} from './surface-city.js';
 import { prop } from './sprites.js';
@@ -52,8 +53,10 @@ function tileCenter(tx,ty,rotation=0) { return projectedTile(tx,ty,rotation); }
 // Open-dollhouse isometric rooms: rear two walls only, no roof or front walls.
 // v1.9.1: a building is emitted as depth-sorted parts (floor, one wall segment per
 // tile edge, furniture per tile) so characters correctly pass behind/in front of walls.
-const BUILDING_COLORS={mushroom:['#92a77a','#69824e','#b4be84'],kitchen:['#dbbb97','#a46b52','#e8ceac'],lounge:['#c0a2be','#786b9c','#e0c7cb'],cooler:['#b6d9de','#4d7da0','#d4edf3'],generator:['#ccbb7f','#666d7b','#efda8e'],recycler:['#a8a38e','#747f68','#c9bd9d'],chemical:['#b2d6cf','#5f9b96','#e1efe6'],disguise:['#d8b7c8','#896b92','#f0dce4'],culture:['#c5b6db','#7d71ad','#dfccee'],farm:['#9fcb9d','#5c9368','#bddcab'],repair:['#cadfe2','#6c9da5','#e6efec'],theater:['#b8a9c8','#80659f','#d9c8e4'],workshop:['#c1b3a0','#797f86','#d8cebc'],automation:['#b9c5d4','#5e7c99','#dce8ed'],water:['#a1d6e1','#5f9fb3','#d3ebea'],security:['#b1b8c2','#6c7685','#d1dae4'],archives:['#cab394','#8f765d','#ddc8a9'],pantry:['#f4e4c4','#d0904a','#f0c080'],storage:['#d8cdb8','#7a8a6a','#b0c098'],wash:['#e6f4f8','#4aa0c8','#8fd0ea'],sorting:['#e2d2b4','#8a7a5a','#bfae8a'],extractor:['#e4e0f4','#5a8a9a','#9ad0d8'],home:['#e9c99a','#6fa8c8','#9fd0e4'],shop:['#f0d2a0','#e07a5a','#f6b07a'],exit:['#bfe6cf','#4fa88a','#8fd6b4'],humanHome:['#f1d6b2','#a07ad0','#cbb0ec'],market:['#f3dcb2','#e2605a','#f6a07a'],warehouse:['#d8d0c0','#5f8fb0','#8fbcd8'],clinic:['#f4f4ee','#5fb8a8','#a8e6d8'],cafe:['#ecc896','#c0784a','#e8a876'],lab:['#dcd8f0','#7a6ad0','#aea2ee']};
-const BADGE={mushroom:'🍄',kitchen:'🍲',lounge:'♫',cooler:'❄',generator:'⚡',recycler:'♻',chemical:'⚗',disguise:'🎭',culture:'🧬',farm:'🌱',repair:'✚',theater:'🎬',workshop:'🔧',automation:'▤',water:'💧',security:'🛡',archives:'📚',pantry:'🍞',storage:'▦',wash:'♒',sorting:'▤',extractor:'⚛',home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'};
+const BUILDING_COLORS_OLD={pantry:['#f4e4c4','#d0904a','#f0c080'],storage:['#d8cdb8','#7a8a6a','#b0c098'],wash:['#e6f4f8','#4aa0c8','#8fd0ea'],sorting:['#e2d2b4','#8a7a5a','#bfae8a'],extractor:['#e4e0f4','#5a8a9a','#9ad0d8'],home:['#e9c99a','#6fa8c8','#9fd0e4'],shop:['#f0d2a0','#e07a5a','#f6b07a'],exit:['#bfe6cf','#4fa88a','#8fd6b4'],humanHome:['#f1d6b2','#a07ad0','#cbb0ec'],market:['#f3dcb2','#e2605a','#f6a07a'],warehouse:['#d8d0c0','#5f8fb0','#8fbcd8'],clinic:['#f4f4ee','#5fb8a8','#a8e6d8'],cafe:['#ecc896','#c0784a','#e8a876'],lab:['#dcd8f0','#7a6ad0','#aea2ee']};
+const BADGE_OLD={pantry:'🍞',storage:'▦',wash:'♒',sorting:'▤',extractor:'⚛',home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'};
+const BADGE={...BADGE_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.icon]))};
+const BUILDING_COLORS={...BUILDING_COLORS_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.color]))};
 export function rotatedRect(b,rotation=0){
   const pts=[[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].map(([x,y])=>rotateGridPoint(x,y,rotation));
   const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
@@ -77,7 +80,7 @@ function wallSegment(ctx,P,Q,H,color,windowed){
 /** Returns {parts:[{depth,sub,draw}], overlay:fn}. depth = rotated tile x+y. */
 export function buildingParts(b,connected=true,rotation=0){
   const [floor,wall,trim]=BUILDING_COLORS[b.kind]??BUILDING_COLORS.home;
-  const H=b.kind==='exit'?10:22, R=rotatedRect(b,rotation);
+  const H=b.kind==='exit'?4:6, R=rotatedRect(b,rotation);
   const a=gp(R.x,R.y),r=gp(R.x+R.w,R.y),d=gp(R.x+R.w,R.y+R.h),l=gp(R.x,R.y+R.h);
   const parts=[];
   parts.push({depth:R.x+R.y-1,sub:-1,draw:ctx=>{
@@ -90,11 +93,11 @@ export function buildingParts(b,connected=true,rotation=0){
     ctx.restore();polygon(ctx,fp,null,'#f1eed7',1.4);
   }});
   // back walls: north edge (y=R.y) and west edge (x=R.x) in rotated space
-  for(let i=0;i<R.w;i++){const P=gp(R.x+i,R.y),Q=gp(R.x+i+1,R.y);parts.push({depth:R.x+i+R.y-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,wall,b.kind!=='exit'&&i===1)});}
-  for(let j=0;j<R.h;j++){const P=gp(R.x,R.y+j),Q=gp(R.x,R.y+j+1);parts.push({depth:R.x+R.y+j-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,trim,b.kind!=='exit'&&j===1)});}
+  for(let i=0;i<R.w;i++){const P=gp(R.x+i,R.y),Q=gp(R.x+i+1,R.y);parts.push({depth:R.x+i+R.y-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,wall,false)});}
+  for(let j=0;j<R.h;j++){const P=gp(R.x,R.y+j),Q=gp(R.x,R.y+j+1);parts.push({depth:R.x+R.y+j-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,trim,false)});}
   parts.push({depth:R.x+R.y-.5,sub:0.5,draw:ctx=>{ctx.strokeStyle='#293f4a';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.x,a.y-H-1.5);ctx.stroke();}});
-  for(const [name,lx,ly] of ROOM_LAYOUT[b.kind]??[]){
-    if(lx>=b.w||ly>=b.h)continue;
+  for(const [name,lx0,ly0] of ROOM_LAYOUT[b.kind]??[]){
+    const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];if(lx>=b.w||ly>=b.h)continue;
     const q=rotateGridPoint(b.x+lx+.5,b.y+ly+.5,rotation),pt=tileToWorld(q.x-.5,q.y-.5);
     parts.push({depth:q.x+q.y-1,sub:1,draw:ctx=>blit(ctx,furniture(name),pt.x,pt.y+6,rotation%2===1)});
   }
@@ -106,22 +109,33 @@ export function buildingParts(b,connected=true,rotation=0){
   };
   return {parts,overlay};
 }
-function carSprite(ctx,pt,axis,color){
- const major=axis==='x'?[13,6]:[-13,6];
- const perp=axis==='x'?[8,-4]:[8,4];
- const x=pt.x,y=pt.y-4;
- const center=(a,b)=>[x+a*major[0]+b*perp[0],y+a*major[1]+b*perp[1]];
- ctx.fillStyle='rgba(9,19,25,.28)';ctx.beginPath();ctx.ellipse(x,y+10,12,5,0,0,Math.PI*2);ctx.fill();
- polygon(ctx,[center(-.82,-.52),center(.82,-.52),center(.82,.52),center(-.82,.52)],'#101c24','#20343f',1.8);
- const bumper=center(.76,0);ctx.fillStyle='#202e35';ctx.fillRect(Math.round(bumper[0]-5),Math.round(bumper[1]+4),10,4);
- polygon(ctx,[center(-.72,-.42),center(.72,-.42),center(.72,.42),center(-.72,.42)],color,'#dfe0cf',1.3);
- polygon(ctx,[center(-.18,-.34),center(.36,-.34),center(.46,.02),center(.10,.34),center(-.24,.34),center(-.32,.02)],'#355264','#e5f1ef',1.0);
- polygon(ctx,[center(-.55,-.33),center(-.12,-.33),center(-.08,.33),center(-.48,.33)],'#2f4654','#d7ece7',0.9);
- polygon(ctx,[center(.40,-.26),center(.62,-.18),center(.62,.18),center(.40,.26)],'#7e9cab','#d7ece7',0.9);
- for(const t of [-.30,.30]){ const c=center(.74,t); ctx.fillStyle='#ffe39a'; ctx.fillRect(c[0]-2,c[1]-2,4,3); }
- for(const t of [-.28,.28]){ const c=center(-.76,t); ctx.fillStyle='#c9595f'; ctx.fillRect(c[0]-2,c[1]-2,4,3); }
- for(const [a,b] of [[-.45,-.54],[-.45,.54],[.45,-.54],[.45,.54]]){ const c=center(a,b); ctx.fillStyle='#1b2328'; ctx.fillRect(c[0]-2,c[1]-2,4,4); }
+// v2.3 isometric 3D car: boxes built on the tile axes (f = forward, sd = side, both in screen px per tile),
+// faces painted back-to-front with per-face shading, so it reads as a solid at every view rotation.
+function car3d(ctx,c,f,sd,color){
+ const P=(u,v,h)=>[c.x+f[0]*u+sd[0]*v,c.y+f[1]*u+sd[1]*v-h];
+ const box=(u0,u1,w,h0,h1,top,side,front,back,glass)=>{
+  const g=[[u0,-w],[u1,-w],[u1,w],[u0,w]];const faces=[];
+  for(let i=0;i<4;i++){const a=g[i],b=g[(i+1)%4];const pts=[P(a[0],a[1],h0),P(b[0],b[1],h0),P(b[0],b[1],h1),P(a[0],a[1],h1)];
+   const my=(pts[0][1]+pts[1][1])/2;const kind=i===1?'front':i===3?'back':'side';faces.push({pts,my,kind});}
+  faces.sort((p,q)=>p.my-q.my);
+  for(const fc of faces){const col=fc.kind==='front'?front:fc.kind==='back'?back:side;polygon(ctx,fc.pts,col,'rgba(20,28,34,.55)',0.8);
+   if(glass&&fc.kind==='side'){const [p0,p1,p2,p3]=fc.pts;const L=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+    polygon(ctx,[L(p0,p1,.12),L(p0,p1,.88),L(p3,p2,.88).map((v,i)=>i?v+2:v),L(p3,p2,.12).map((v,i)=>i?v+2:v)],glass,null);}}
+  polygon(ctx,g.map(([u,v])=>P(u,v,h1)),top,'rgba(20,28,34,.55)',0.8);
+ };
+ // shadow
+ ctx.fillStyle='rgba(8,16,22,.32)';ctx.beginPath();const sh=[[-.5,-.27],[.5,-.27],[.5,.27],[-.5,.27]].map(([u,v])=>P(u*1.06,v*1.15,-1));ctx.moveTo(...sh[0]);for(const q of sh.slice(1))ctx.lineTo(...q);ctx.closePath();ctx.fill();
+ // wheels (drawn under the body; only the ones on the near side show)
+ for(const [u,v] of [[-.3,-.23],[.3,-.23],[-.3,.23],[.3,.23]]){const w=P(u,v,2);ctx.fillStyle='#151a1e';ctx.beginPath();ctx.ellipse(w[0],w[1],3.4,2.4,0,0,Math.PI*2);ctx.fill();}
+ const lit=shade(color,22),mid=color,dark=shade(color,-30),darker=shade(color,-48);
+ box(-.46,.46,.22,2,9,lit,dark,mid,darker,null);
+ // lights on the body ends
+ const fl=[P(.46,-.13,6),P(.46,.13,6)],bl=[P(-.46,-.13,6),P(-.46,.13,6)];
+ for(const q of fl){ctx.fillStyle='#ffe39a';ctx.fillRect(Math.round(q[0]-1.5),Math.round(q[1]-1),3,2);}
+ for(const q of bl){ctx.fillStyle='#e0473c';ctx.fillRect(Math.round(q[0]-1.5),Math.round(q[1]-1),3,2);}
+ box(-.24,.18,.17,9,15,shade(color,34),'#2c4654','#3a5e72','#26404e','#8fc8e0');
 }
+function carSprite(ctx,pt,axis,color){car3d(ctx,{x:pt.x,y:pt.y},axis==='x'?[24,12]:[-24,12],axis==='x'?[-14,7]:[14,7],color);}
 function streetPerson(ctx,pt,index,seconds,flip=index%2===1,activity='walk'){
  const x=Math.round(pt.x),y=Math.round(pt.y+4);
  ctx.fillStyle='rgba(9,19,25,.3)';ctx.beginPath();ctx.ellipse(x,y,7,3,0,0,Math.PI*2);ctx.fill();
@@ -184,8 +198,27 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   if(world.id==='surface'){
     const humanCount=world.humanCount??34,trust=world.humanTrust??55;
     for(const v of vehiclesAt(elapsedSeconds,humanCount,trust)){const pt=projectedTile(v.x,v.y,rot);
-      list.push({depth:depthOf(v.x,v.y),sub:2,draw:ctx=>{ctx.save();ctx.translate(pt.x,pt.y);ctx.scale(1.6,1.6);ctx.translate(-pt.x,-pt.y);carSprite(ctx,pt,rot%2===0?v.axis:(v.axis==='x'?'y':'x'),v.color);ctx.restore();}});}
+      const fx=v.axis==='x'?v.dir??1:0,fy=v.axis==='y'?v.dir??1:0,p1=projectedTile(v.x+fx,v.y+fy,rot),p2=projectedTile(v.x-fy,v.y+fx,rot);
+      const fvec=[(p1.x-pt.x)*1.15,(p1.y-pt.y)*1.15],svec=[(p2.x-pt.x)*1.15,(p2.y-pt.y)*1.15];
+      list.push({depth:depthOf(v.x,v.y),sub:2,draw:ctx=>car3d(ctx,{x:pt.x,y:pt.y+2},fvec,svec,v.color)});}
     for(const walker of pedestriansAt(elapsedSeconds,humanCount)){const t=projectedTile(walker.x,walker.y,rot);list.push({depth:depthOf(walker.x,walker.y),sub:2,draw:ctx=>streetPerson(ctx,t,walker.id,elapsedSeconds)});}
+  }
+  // v2.2 underground = solid earth. Every undug tile (not a corridor, not under a facility) is a raised
+  // block; corridors and rooms are dug out below it, so tunnel walls hide the feet of passing residents.
+  const EARTH=10;
+  if(world.id==='underground'){
+    const dug=new Set(world.paths);for(const b of world.buildings)for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)dug.add(x+','+y);
+    const rk=new Set();const blocks=[];
+    for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){if(dug.has(x+','+y))continue;const t=rotateTile(x,y,rot);rk.add(t.x+','+t.y);blocks.push({x,y,t,closed:world.closed.has(x+','+y)});}
+    for(const bl of blocks){const c=projectedTile(bl.x,bl.y,rot),v=Math.floor(tileHash(bl.x,bl.y)*4);
+      const frontL=!rk.has(bl.t.x+','+(bl.t.y+1)),frontR=!rk.has((bl.t.x+1)+','+bl.t.y);
+      const top=bl.closed?'#4a3c36':'#9a7e62',side=bl.closed?'#2e2420':'#6a523e',side2=bl.closed?'#3a2e28':'#80664c';
+      list.push({depth:bl.t.x+bl.t.y,sub:-1.5,draw:ctx=>{
+        if(frontL)polygon(ctx,[[c.x-32,c.y-EARTH],[c.x,c.y+16-EARTH],[c.x,c.y+16],[c.x-32,c.y]],side2,null);
+        if(frontR)polygon(ctx,[[c.x,c.y+16-EARTH],[c.x+32,c.y-EARTH],[c.x+32,c.y],[c.x,c.y+16]],side,null);
+        if(!drawTile(ctx,c.x,c.y-EARTH,top,bl.closed?'rubble':'noise',v))polygon(ctx,[[c.x,c.y-16-EARTH],[c.x+32,c.y-EARTH],[c.x,c.y+16-EARTH],[c.x-32,c.y-EARTH]],top,null);
+        if(frontL||frontR){ctx.strokeStyle='rgba(30,20,14,.55)';ctx.lineWidth=1;ctx.beginPath();if(frontL){ctx.moveTo(c.x-32,c.y-EARTH);ctx.lineTo(c.x,c.y+16-EARTH);}else ctx.moveTo(c.x,c.y+16-EARTH);if(frontR)ctx.lineTo(c.x+32,c.y-EARTH);ctx.stroke();}
+      }});}
   }
   // scenery props on empty lots / cave floor
   const occupied=new Set();for(const b of [...world.buildings,...(world.cityBuildings??[])])for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)occupied.add(x+','+y);
@@ -200,7 +233,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       if(kind==='lot')name=h<.16?'tree':h<.24?'flowers':h<.3?'bush':h<.32?'bench':null;
       else if(kind==='sidewalk'&&(x*7+y*3)%9===0)name='lamp';}
     else if(!world.paths.has(k)){name=world.closed.has(k)?(h<.08?'crystal':null):h<.05?'mushroom':h<.08?'lantern':h<.1?'crystal':null;}
-    if(!name)continue;const pt=projectedTile(x,y,rot),dx=(h*7%1-.5)*12;
+    if(!name)continue;const pt0=projectedTile(x,y,rot),pt={x:pt0.x,y:pt0.y-(world.id==='underground'?10:0)},dx=(h*7%1-.5)*12;
     list.push({depth:depthOf(x,y),sub:1.5,draw:ctx=>{ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(pt.x+dx,pt.y+4,10,4,0,0,Math.PI*2);ctx.fill();blit(ctx,prop(name),pt.x+dx,pt.y+5);
       if(name==='lantern'||name==='lamp'){const g=ctx.createRadialGradient?.(pt.x+dx,pt.y-(name==='lamp'?20:10),1,pt.x+dx,pt.y-(name==='lamp'?20:10),26);if(!g?.addColorStop)return;g.addColorStop(0,'rgba(255,230,150,.35)');g.addColorStop(1,'rgba(255,230,150,0)');ctx.fillStyle=g;ctx.fillRect(pt.x+dx-26,pt.y-46,52,52);}}});
   }
@@ -229,7 +262,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   if(placement && world.id==='underground'){
     const tiles=placement.tiles??[];
     for(const tile of tiles){const pt=projectedTile(tile.x,tile.y,view.rotation??0);diamond(ctx,pt.x,pt.y,placement.valid?'rgba(129,237,159,.42)':'rgba(248,100,100,.38)',placement.valid?'#b7ffc6':'#ffc1bf');}
-    if(['home','shop','lab',...Object.keys(BUILDING_COLORS)].includes(placement.kind)){
+    if(FACILITY_DEFS[placement.kind]){
       ctx.fillStyle=placement.valid?'#e1ffcd':'#ffe0d0';ctx.font='bold 14px system-ui';ctx.textAlign='center';
       const pt=projectedTile(placement.x,placement.y,view.rotation??0);ctx.fillText(`${placement.w}×${placement.h}`,pt.x,pt.y-30);
     }
