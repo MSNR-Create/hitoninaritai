@@ -1,7 +1,8 @@
 // v2.0-B storage: 食料庫 (pantry) holds food, 資材置き場 (storage) holds everything else.
 // Full storage refuses intake (purchases blocked, surplus not collected) — nothing already stored is destroyed.
 export const FOOD_BASE=30,FOOD_PER_PANTRY=40,GOODS_BASE=30,GOODS_PER_STORAGE=60;
-export const GOODS=Object.freeze({care:'生活用品',luxury:'嗜好品',samples:'研究資材',salvage:'未選別回収物',residue:'有機残渣',labwaste:'実験廃材',mushrooms:'地下キノコ',vegetables:'地下野菜',compost:'培養用培地',parts:'ジャンク部品',cleaner:'洗浄液',makeup:'偽装クリーム',media:'娯楽メディア',paper:'再生紙',water:'再生水',circuits:'電子基板',toolkit:'精密工具',fuel:'精製燃料',sweets:'お菓子',coffee:'コーヒー',spices:'調味料',batteries:'バッテリー'});
+import { ITEMS } from './catalog.js';
+export const GOODS=Object.freeze(Object.fromEntries(Object.entries(ITEMS).filter(([k])=>k!=='food').map(([k,v])=>[k,v.name])));
 export function capacities(world){
  const n=k=>world.buildings.filter(b=>b.kind===k&&(world.connectivity?.[b.id]??true)).length;
  return {food:FOOD_BASE+FOOD_PER_PANTRY*n('pantry'),goods:GOODS_BASE+GOODS_PER_STORAGE*n('storage'),pantries:n('pantry'),storages:n('storage')};

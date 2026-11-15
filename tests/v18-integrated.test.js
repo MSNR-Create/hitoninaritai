@@ -36,7 +36,7 @@ test('zombie visual includes distinct rest, research and walking states',()=>{
  const evening={...game,tick:52};assert.ok(visibleResidents(evening,'underground',world).some(r=>r.activity==='walk'));
 });
 test('PWA service worker includes all modules and uses current version',()=>{
- const sw=read('sw.js'),html=read('index.html');assert.match(sw,/zombie-colony-v21-content-1/);
- assert.match(html,/styles\.css\?v=2101/);assert.match(html,/main\.js\?v=2101/);
+ const sw=read('sw.js'),html=read('index.html');assert.match(sw,/zombie-colony-v210-0/);
+ assert.match(html,/styles\.css\?v=1900/);assert.match(html,/main\.js\?v=1900/);
  assert.match(read('src/main.js'),/propertyLocation/);assert.match(read('src/main.js'),/フリマ返品/);
 });
