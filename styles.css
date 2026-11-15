@@ -92,7 +92,7 @@ body { position: fixed; inset: 0; }
 }
 .app-shell > .topbar,.app-shell > .metrics,.app-shell > .game-panel,.app-shell > .bottom-menu { min-height: 0; margin: 0; }
 .app-shell > .game-panel {
-  display: grid; grid-template-rows: auto auto minmax(0,1fr);
+  display: grid; grid-template-rows: auto minmax(0,1fr);
   min-height: 0 !important; height: auto; max-height: 100%; overflow: hidden;
 }
 .app-shell .game-panel > .viewport { min-height: 0 !important; height: auto !important; overflow: hidden; }
