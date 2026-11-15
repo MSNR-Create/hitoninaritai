@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {initialGame,stepGame,assignJob} from '../src/simulation.js';
+import {boundCamera,makePinch,applyPinch,WORLD_EXTENTS} from '../src/camera.js';
+import {worldToView,viewToWorld} from '../src/geometry.js';
+const advance=(s,n)=>{for(let i=0;i<n;i++)s=stepGame(s);return s;};
+test('night starts on tick 60, settles once at tick 120',()=>{let s=advance(initialGame(),60);assert.equal(s.money,300);assert.equal(s.residents[0].activeJob,'clean');assert.equal(s.residents[0].action,'出勤中');s=advance(s,60);assert.equal(s.money,396);assert.equal(s.food,17);assert.equal(s.day,2);assert.equal(s.lastReport.income,96);});
+test('different assignments alter income, food and fatigue',()=>{const base=initialGame(),rest=advance(assignJob(base,1,'rest'),120),forage=advance(assignJob(base,1,'forage'),120);assert.ok(rest.money<forage.money||rest.money===forage.money);assert.ok(rest.residents[0].fatigue<forage.residents[0].fatigue);assert.ok(forage.food>rest.food);});
+test('100 days preserve valid resources and bounded needs',()=>{const s=advance(initialGame(),120*100);assert.ok(s.money>=0&&s.food>=0);assert.ok(s.alert>=0&&s.alert<=100);assert.ok(s.residents.every(r=>r.fatigue>=0&&r.fatigue<=100));assert.equal(s.day,101);});
+test('pinch centered on same point never drifts at fixed midpoint',()=>{const v={cx:180,cy:170,panX:0,panY:-240,zoom:.8};const startA={x:100,y:170},startB={x:260,y:170};const pinch=makePinch(v,startA,startB);const next=applyPinch(v,pinch,{x:60,y:170},{x:300,y:170},360,380);const anchor=worldToView(pinch.anchor.x,pinch.anchor.y,next);assert.ok(Math.abs(anchor.x-180)<1e-9);assert.ok(Math.abs(anchor.y-170)<1e-9);const again=applyPinch(next,pinch,startA,startB,360,380);assert.ok(Math.abs(again.panX-v.panX)<1e-9);});
+test('pinch movement tracks finger midpoint without double translating',()=>{const v={cx:180,cy:170,panX:0,panY:-230,zoom:.8};const pinch=makePinch(v,{x:120,y:130},{x:240,y:130});const next=applyPinch(v,pinch,{x:130,y:145},{x:250,y:145},360,380);const anchor=worldToView(pinch.anchor.x,pinch.anchor.y,next);assert.equal(Math.round(anchor.x),190);assert.equal(Math.round(anchor.y),145);});
+test('camera bounds prevent infinite panning',()=>{for(const pan of [-1e6,1e6]){const v=boundCamera({cx:180,cy:190,panX:pan,panY:pan,zoom:1},360,380);assert.ok(Math.abs(v.panX)<1500&&Math.abs(v.panY)<1500);}});
