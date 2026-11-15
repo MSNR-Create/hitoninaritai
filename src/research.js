@@ -5,6 +5,10 @@ export const BRANCHES=Object.freeze({
   work:{name:'労働',icon:'🧹'},
   build:{name:'建築',icon:'🏗️'},
   society:{name:'社会',icon:'🤝'},
+  food:{name:'食料・栽培',icon:'🍄'},
+  health:{name:'衛生・修復',icon:'🧪'},
+  automation:{name:'自動化',icon:'⚙️'},
+  stealth:{name:'潜伏・防衛',icon:'🎭'},
   final:{name:'最終',icon:'🌅'}
 });
 // work = 研究ポイント。研究担当1体の夜勤で1pt×知性・特性補正、接続済み研究室2棟目以降は1棟につき+1pt（担当者がいる夜のみ）。
@@ -25,6 +29,29 @@ export const TECHS=Object.freeze([
   {id:'adaptation',name:'社会適応',branch:'society',tier:2,req:['impulse'],cost:180,samples:3,work:8,desc:'警戒度が毎日 −1、隣人の疑惑が上がりにくい。'},
   {id:'wordofmouth',name:'口コミ研究',branch:'society',tier:3,req:['adaptation'],cost:160,samples:3,work:8,desc:'地上事業の売上 +15%。'},
   {id:'appraisal',name:'目利き術',branch:'society',tier:3,req:['adaptation'],cost:120,samples:2,work:6,desc:'フリマ販売手数料を実質4%還元。'},
+  {id:'mycology',name:'地下菌類栽培',branch:'food',tier:1,req:[],cost:75,samples:1,work:4,desc:'キノコ栽培室が建設可能'},
+  {id:'cooking',name:'共同調理の知恵',branch:'food',tier:1,req:[],cost:80,samples:1,work:4,desc:'地下調理場が建設可能'},
+  {id:'soilcycle',name:'循環型培地',branch:'food',tier:2,req:['mycology'],cost:130,samples:2,work:7,desc:'堆肥資源の加工効率向上'},
+  {id:'hydroponics',name:'地下水耕農法',branch:'food',tier:3,req:['soilcycle','watercycle'],cost:240,samples:3,work:10,desc:'地下水耕農園が建設可能'},
+  {id:'foodquality',name:'栄養献立学',branch:'food',tier:3,req:['cooking','mycology'],cost:180,samples:3,work:9,desc:'食事の満足度と備蓄効率を改善'},
+  {id:'watercycle',name:'地下浄水技術',branch:'food',tier:1,req:[],cost:85,samples:1,work:4,desc:'浄水設備が建設可能'},
+  {id:'leisure',name:'娯楽ホール設計',branch:'health',tier:1,req:[],cost:110,samples:2,work:5,desc:'娯楽ホールが建設可能'},
+  {id:'refrigeration',name:'低温保存技術',branch:'health',tier:2,req:['sanitation'],cost:145,samples:2,work:7,desc:'低温保存室が建設可能'},
+  {id:'chemistry',name:'生活用薬品合成',branch:'health',tier:2,req:['sanitation','research_base'],cost:230,samples:3,work:10,desc:'薬品合成室が建設可能'},
+  {id:'regeneration',name:'身体再生医療',branch:'health',tier:3,req:['chemistry','refrigeration'],cost:360,samples:4,work:13,desc:'身体修復室が建設可能'},
+  {id:'bioculture',name:'試料培養技術',branch:'health',tier:3,req:['chemistry','research_base'],cost:320,samples:4,work:13,desc:'研究試料を培養して増産可能'},
+  {id:'entertainment',name:'地下の映像文化',branch:'health',tier:3,req:['leisure','hobby'],cost:220,samples:3,work:10,desc:'地下シアターが建設可能'},
+  {id:'electricity',name:'地下小型発電',branch:'automation',tier:1,req:[],cost:100,samples:2,work:5,desc:'小型発電所が建設可能'},
+  {id:'recycling',name:'資源再生技術',branch:'automation',tier:1,req:[],cost:95,samples:2,work:5,desc:'資材再生工房が建設可能'},
+  {id:'mechanization',name:'機械組立工学',branch:'automation',tier:2,req:['electricity','recycling'],cost:210,samples:3,work:10,desc:'機械組立室と電子部品生産が解禁'},
+  {id:'sorting_ai',name:'自動仕分けAI',branch:'automation',tier:3,req:['mechanization','logistics'],cost:420,samples:5,work:15,desc:'自動仕分けセンターを建設可能'},
+  {id:'archives_research',name:'地下知識アーカイブ',branch:'automation',tier:2,req:['research_base'],cost:175,samples:2,work:8,desc:'地下図書館を建設可能'},
+  {id:'camouflage',name:'高度な偽装メイク',branch:'stealth',tier:2,req:['makeup'],cost:170,samples:2,work:8,desc:'偽装メイク工房が建設可能'},
+  {id:'soundproof',name:'防音警備システム',branch:'stealth',tier:2,req:['sanitation'],cost:185,samples:2,work:8,desc:'防音・警備室が建設可能'},
+  {id:'undercover',name:'社会潜伏訓練',branch:'stealth',tier:3,req:['camouflage','adaptation'],cost:280,samples:4,work:11,desc:'夜勤露見リスクをさらに軽減'},
+  {id:'transport',name:'静音物流ルート',branch:'stealth',tier:3,req:['soundproof','logistics'],cost:285,samples:4,work:11,desc:'地上事業収益と夜勤の安全性を改善'},
+  {id:'health_protocol',name:'衛生プロトコル',branch:'health',tier:3,req:['refrigeration','regeneration'],cost:270,samples:4,work:12,desc:'腐敗進行と臭気を抑える'},
+  {id:'community',name:'地下自治会',branch:'health',tier:4,req:['entertainment','archives_research'],cost:370,samples:5,work:14,desc:'嗜好品不足による衝動増加をさらに軽減'},
   {id:'humanization',name:'人間化技術',branch:'final',tier:4,req:['adaptation','foreman','wordofmouth'],cost:600,samples:6,work:18,desc:'3つの未来から進路を選べる。'}
 ]);
 export const techById=id=>TECHS.find(t=>t.id===id);
@@ -67,15 +94,17 @@ export function researchMods(completed=[]){
   return {
     payMul:(has('shiftplan')?1.2:1)*(has('foreman')?1.25:1),
     fatigueMul:has('stretch')?0.75:1,
-    exposureCut:has('makeup')?1:0,
+    exposureCut:(has('makeup')?1:0)+(has('undercover')?1:0),
     restBonus:has('sleep')?8:0,
-    impulseRelief:has('impulse')?12:0,
-    luxuryPenaltyMul:has('hobby')?0.5:1,
-    foodPack:has('preserve')?8:5,
+    impulseRelief:(has('impulse')?12:0)+(has('community')?3:0),
+    luxuryPenaltyMul:has('community')?0.25:has('hobby')?0.5:1,
+    foodPack:(has('preserve')?8:5)+(has('foodquality')?1:0),
     supplyMul:has('logistics')?0.8:1,
     homeBonus:has('bunk')?2:0,
     alertDecay:has('adaptation')?1:0,
-    surfaceMul:has('wordofmouth')?1.15:1,
-    fleaRebate:has('appraisal')?0.04:0
+    surfaceMul:(has('wordofmouth')?1.15:1)*(has('transport')?1.08:1),
+    fleaRebate:has('appraisal')?0.04:0,
+    decayReduction:(has('refrigeration')?.15:0)+(has('health_protocol')?.2:0),
+    foodBonus:has('foodquality')?1:0
   };
 }

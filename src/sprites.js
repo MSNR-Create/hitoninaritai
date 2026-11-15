@@ -83,6 +83,7 @@ const FURN={
   fridge:[['oooooooo','owwwwwwo','owwwwwgo','oooooooo','owwwwwwo','owwwwwgo','owwwwwwo','owwwwwwo','oooooooo'],{o:'#22313a',w:'#d8e4e6',g:'#8aa2a8'}],
   table:[['.oooooooooo.','oTTTTTTTTTTo','oddddddddddo','.od......do.','.oo......oo.'],{o:'#22313a',T:'#d8b080',d:'#8a6044'}],
   hatch:[['...oooooo...','..oyyyyyyo..','.oyoooooooy.','oyoggggggoyo','oyogGGGGgoyo','oyoggggggoyo','.oyoooooooy.','..oyyyyyyo..','...oooooo...'],{o:'#18282a',y:'#d9c46a',g:'#2c4a46',G:'#79d6b6'}],
+  sofa:[['..oooooooooooo..','..oCCCCCCCCCCo..','.ooCCCCCCCCCCoo.','oRRRRRRRRRRRRo.','oRRRRRRRRRRRRo.','oRRoooooooRRRo.','ooRo.......oRoo','..oo.......oo..'],{o:'#22313a',C:'#c37e73',R:'#825f7e'}],
   cooler:[['oooooo','obbbbo','oBbbBo','oooooo','owwwwo','owwwwo','oooooo'],{o:'#22313a',b:'#8ad0ec',B:'#5aa0c0',w:'#dfe8ea'}]
 };
 export function furniture(name){const f=FURN[name];return f?sprite('f-'+name,f[0],f[1]):null;}
@@ -98,6 +99,24 @@ export const ROOM_LAYOUT={
   wash:[['cooler',0,0],['fridge',1,0],['plant',1,1]],
   sorting:[['crates',0,0],['table',1,0],['crates',1,1]],
   extractor:[['desk',0,0],['cooler',1,0],['shelf',2,0],['desk',2,1]],
+  mushroom:[['plant',0,0],['plant',1,0],['plant',2,0],['crates',1,1]],
+  kitchen:[['table',0,0],['fridge',1,0],['shelf',1,1]],
+  lounge:[['sofa',0,0],['table',1,0],['plant',2,1]],
+  cooler:[['cooler',0,0],['fridge',1,0],['cooler',0,2]],
+  generator:[['cooler',0,0],['desk',1,0]],
+  recycler:[['crates',0,0],['table',1,0],['crates',2,1]],
+  chemical:[['desk',0,0],['cooler',1,0]],
+  disguise:[['table',0,0],['shelf',1,0]],
+  culture:[['cooler',0,0],['plant',1,1],['desk',2,1]],
+  farm:[['plant',0,0],['plant',1,0],['plant',2,0],['plant',0,2]],
+  repair:[['table',0,0],['cooler',1,0],['desk',2,1]],
+  theater:[['sofa',0,0],['sofa',1,0],['desk',2,1]],
+  workshop:[['desk',0,0],['crates',1,0],['table',2,1]],
+  automation:[['crates',0,0],['desk',1,1],['crates',2,2]],
+  water:[['cooler',0,0],['plant',1,1]],
+  security:[['desk',0,0],['shelf',1,0]],
+  archives:[['shelf',0,0],['shelf',1,0],['desk',2,1]],
+
   lab:[['desk',0,0],['shelf',1,0],['desk',0,1],['cooler',1,1]],
   clinic:[['bed',0,0],['desk',1,0],['cooler',2,0],['bed',0,1],['plant',2,2]],
   warehouse:[['crates',0,0],['crates',1,0],['crates',2,0],['crates',0,1],['crates',2,2],['shelf',1,2]],

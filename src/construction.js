@@ -3,9 +3,9 @@ import { inBounds } from './geometry.js';
 const k=(x,y)=>`${x},${y}`;
 const neighbors=(x,y)=>[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(([a,b])=>inBounds(a,b));
 export const ZONE_COSTS=Object.freeze({northwest:75,northeast:110,southeast:140});
-export const BUILD_COSTS=Object.freeze({path:5,home:100,shop:80,lab:120,wash:70,sorting:90,extractor:170,pantry:90,storage:110});
-export const FACILITY_SIZES=Object.freeze({home:[3,2],shop:[2,3],lab:[2,2],wash:[2,2],sorting:[2,2],extractor:[3,2],pantry:[2,2],storage:[3,2]});
-export const FACILITY_NAMES=Object.freeze({home:'増築住居',shop:'共同配給所',lab:'研究室',wash:'簡易洗浄台',sorting:'回収物選別台',extractor:'研究試料抽出装置',pantry:'食料庫',storage:'資材置き場'});
+export const BUILD_COSTS=Object.freeze({path:5,home:100,shop:80,lab:120,wash:70,sorting:90,extractor:170,pantry:90,storage:110,mushroom:145,kitchen:125,lounge:180,cooler:230,generator:155,recycler:190,chemical:270,disguise:185,culture:390,farm:340,repair:320,theater:245,workshop:330,automation:460,water:135,security:225,archives:200});
+export const FACILITY_SIZES=Object.freeze({home:[3,2],shop:[2,3],lab:[2,2],wash:[2,2],sorting:[2,2],extractor:[3,2],pantry:[2,2],storage:[3,2],mushroom:[3,2],kitchen:[2,2],lounge:[3,2],cooler:[2,3],generator:[2,2],recycler:[3,2],chemical:[2,2],disguise:[2,2],culture:[3,3],farm:[3,3],repair:[3,2],theater:[3,2],workshop:[3,2],automation:[3,3],water:[2,2],security:[2,2],archives:[3,2]});
+export const FACILITY_NAMES=Object.freeze({home:'増築住居',shop:'共同配給所',lab:'研究室',wash:'簡易洗浄台',sorting:'回収物選別台',extractor:'研究試料抽出装置',pantry:'食料庫',storage:'資材置き場',mushroom:'地下キノコ栽培室',kitchen:'地下調理場',lounge:'娯楽ホール',cooler:'低温保存室',generator:'小型発電所',recycler:'資材再生工房',chemical:'薬品合成室',disguise:'偽装メイク工房',culture:'培養研究槽',farm:'地下水耕農園',repair:'身体修復室',theater:'地下シアター',workshop:'機械組立室',automation:'自動仕分けセンター',water:'浄水設備',security:'防音・警備室',archives:'地下図書館'});
 export function zoneAt(world,x,y){return world.zones?.find(z=>x>=z.x&&x<z.x+z.w&&y>=z.y&&y<z.y+z.h)??null;}
 function hasBuilding(world,x,y){return world.buildings.some(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h);}
 function isOpen(world,x,y){return inBounds(x,y)&&!world.closed.has(k(x,y));}

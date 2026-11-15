@@ -52,8 +52,8 @@ function tileCenter(tx,ty,rotation=0) { return projectedTile(tx,ty,rotation); }
 // Open-dollhouse isometric rooms: rear two walls only, no roof or front walls.
 // v1.9.1: a building is emitted as depth-sorted parts (floor, one wall segment per
 // tile edge, furniture per tile) so characters correctly pass behind/in front of walls.
-const BUILDING_COLORS={pantry:['#f4e4c4','#d0904a','#f0c080'],storage:['#d8cdb8','#7a8a6a','#b0c098'],wash:['#e6f4f8','#4aa0c8','#8fd0ea'],sorting:['#e2d2b4','#8a7a5a','#bfae8a'],extractor:['#e4e0f4','#5a8a9a','#9ad0d8'],home:['#e9c99a','#6fa8c8','#9fd0e4'],shop:['#f0d2a0','#e07a5a','#f6b07a'],exit:['#bfe6cf','#4fa88a','#8fd6b4'],humanHome:['#f1d6b2','#a07ad0','#cbb0ec'],market:['#f3dcb2','#e2605a','#f6a07a'],warehouse:['#d8d0c0','#5f8fb0','#8fbcd8'],clinic:['#f4f4ee','#5fb8a8','#a8e6d8'],cafe:['#ecc896','#c0784a','#e8a876'],lab:['#dcd8f0','#7a6ad0','#aea2ee']};
-const BADGE={pantry:'🍞',storage:'▦',wash:'♒',sorting:'▤',extractor:'⚛',home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'};
+const BUILDING_COLORS={mushroom:['#92a77a','#69824e','#b4be84'],kitchen:['#dbbb97','#a46b52','#e8ceac'],lounge:['#c0a2be','#786b9c','#e0c7cb'],cooler:['#b6d9de','#4d7da0','#d4edf3'],generator:['#ccbb7f','#666d7b','#efda8e'],recycler:['#a8a38e','#747f68','#c9bd9d'],chemical:['#b2d6cf','#5f9b96','#e1efe6'],disguise:['#d8b7c8','#896b92','#f0dce4'],culture:['#c5b6db','#7d71ad','#dfccee'],farm:['#9fcb9d','#5c9368','#bddcab'],repair:['#cadfe2','#6c9da5','#e6efec'],theater:['#b8a9c8','#80659f','#d9c8e4'],workshop:['#c1b3a0','#797f86','#d8cebc'],automation:['#b9c5d4','#5e7c99','#dce8ed'],water:['#a1d6e1','#5f9fb3','#d3ebea'],security:['#b1b8c2','#6c7685','#d1dae4'],archives:['#cab394','#8f765d','#ddc8a9'],pantry:['#f4e4c4','#d0904a','#f0c080'],storage:['#d8cdb8','#7a8a6a','#b0c098'],wash:['#e6f4f8','#4aa0c8','#8fd0ea'],sorting:['#e2d2b4','#8a7a5a','#bfae8a'],extractor:['#e4e0f4','#5a8a9a','#9ad0d8'],home:['#e9c99a','#6fa8c8','#9fd0e4'],shop:['#f0d2a0','#e07a5a','#f6b07a'],exit:['#bfe6cf','#4fa88a','#8fd6b4'],humanHome:['#f1d6b2','#a07ad0','#cbb0ec'],market:['#f3dcb2','#e2605a','#f6a07a'],warehouse:['#d8d0c0','#5f8fb0','#8fbcd8'],clinic:['#f4f4ee','#5fb8a8','#a8e6d8'],cafe:['#ecc896','#c0784a','#e8a876'],lab:['#dcd8f0','#7a6ad0','#aea2ee']};
+const BADGE={mushroom:'🍄',kitchen:'🍲',lounge:'♫',cooler:'❄',generator:'⚡',recycler:'♻',chemical:'⚗',disguise:'🎭',culture:'🧬',farm:'🌱',repair:'✚',theater:'🎬',workshop:'🔧',automation:'▤',water:'💧',security:'🛡',archives:'📚',pantry:'🍞',storage:'▦',wash:'♒',sorting:'▤',extractor:'⚛',home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'};
 export function rotatedRect(b,rotation=0){
   const pts=[[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].map(([x,y])=>rotateGridPoint(x,y,rotation));
   const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
@@ -229,7 +229,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   if(placement && world.id==='underground'){
     const tiles=placement.tiles??[];
     for(const tile of tiles){const pt=projectedTile(tile.x,tile.y,view.rotation??0);diamond(ctx,pt.x,pt.y,placement.valid?'rgba(129,237,159,.42)':'rgba(248,100,100,.38)',placement.valid?'#b7ffc6':'#ffc1bf');}
-    if(['home','shop','lab','wash','sorting','extractor','pantry','storage'].includes(placement.kind)){
+    if(['home','shop','lab',...Object.keys(BUILDING_COLORS)].includes(placement.kind)){
       ctx.fillStyle=placement.valid?'#e1ffcd':'#ffe0d0';ctx.font='bold 14px system-ui';ctx.textAlign='center';
       const pt=projectedTile(placement.x,placement.y,view.rotation??0);ctx.fillText(`${placement.w}×${placement.h}`,pt.x,pt.y-30);
     }

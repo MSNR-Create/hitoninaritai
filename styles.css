@@ -232,3 +232,11 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 .sb-row span:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#dcebe6}.sb-head{font-size:12px;font-weight:700;color:#f2d77f;margin-top:6px}.sb-row.click{cursor:pointer}.sb-row.click:hover{background:#1c3440;border-radius:6px}
 [data-tool].locked{opacity:.5;filter:grayscale(.7)}
 #stockChart{width:100%;height:90px;background:#10202a;border-radius:8px;border:1px solid #3f5d66;margin-top:4px}
+
+.category-heading{flex:0 0 100%;display:block;padding:8px 10px;margin-top:6px;border-bottom:1px solid #64818c;background:#263e4c;color:#f5e9b1;font-weight:800;font-size:12px;border-radius:6px}
+
+.production-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 8px;border:1px solid #6e948d;border-radius:8px;background:#18313a;margin:8px 0;color:#f0edce}
+.production-controls label{font-weight:800;font-size:12px}.production-controls select{min-width:145px;max-width:100%;flex:1;background:#234b55;color:#fff;border:2px solid #96c9bb;border-radius:7px;padding:8px;font-size:12px}
+.production-controls small{flex:0 0 100%;color:#e1e8df}
+
+.build-actions .category-heading{grid-column:1/-1;display:block;min-width:0;white-space:normal}
