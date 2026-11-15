@@ -955,6 +955,5 @@ function drawTreeLines(){const tree=el('researchTree'),wrap=tree?.querySelector(
 
 // ===== v3.1 audio =====
 for(const ev of ['pointerdown','keydown'])window.addEventListener(ev,()=>{unlockAudio();setMusic(colony.gameOver?null:(game.tick%120)>=60?'night':'day');},{capture:true});
-document.addEventListener('click',e=>{if(e.target.closest('button'))sfx('click');},{capture:true});
 {const m=el('audioMute'),b=el('bgmVol'),f=el('sfxVol');if(m&&b&&f){b.value=audioPrefs.bgm;f.value=audioPrefs.sfx;const sync=()=>{m.textContent=audioPrefs.muted?'🔇 ミュート中':'🔊 音あり';};sync();
  m.addEventListener('click',()=>{setAudio({muted:!audioPrefs.muted});sync();});b.addEventListener('input',()=>setAudio({bgm:+b.value}));f.addEventListener('input',()=>{setAudio({sfx:+f.value});sfx('coin');});}}
