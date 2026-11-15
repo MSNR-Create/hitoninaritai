@@ -7,4 +7,4 @@ export function formattedGameClock(day, tick){
   return {dateTime:`第${day}日 · ${hh}:${mm}`,phase:n>=60?'夜':'昼',hour:hh,minute:mm};
 }
 export function ticksUntilNextDay(tick){const n=((Math.floor(tick)%120)+120)%120;return 120-n;}
-export function nextSpeed(speed){return ({1:2,2:5,5:10,10:1})[speed]??1;}
+export function nextSpeed(speed){return ({1:2,2:3,3:5,5:10,10:2})[speed]??2;}

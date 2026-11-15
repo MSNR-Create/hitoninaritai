@@ -426,7 +426,7 @@ function updateEconomy(){updateBuildButtons();
   const capacity=colonyCapacity();
   el('populationValue').textContent=`${game.residents.length} / ${capacity}`;
   el('moneyValue').textContent=game.money;
-  el('foodValue').textContent=colony.inventory.food;
+  el('foodValue').innerHTML=`食${colony.inventory.food}<small> ・品${ST.goodsTotal(colony.inventory)}</small>`;
   el('moodValue').textContent=Math.max(0,moodOf(game)-Math.round(game.residents.reduce((sum,r)=>sum+(r.impulse??0),0)/Math.max(1,game.residents.length)/3));
   el('alertValue').textContent=game.alert;
   updateConstruction();updateRentalPanel();updateSurfacePanel();updateColonyPanel();updateSocialPanel();updateCityPanel();
@@ -570,14 +570,14 @@ for(const b of document.querySelectorAll('[data-ending]'))b.addEventListener('cl
 el('pauseButton').addEventListener('click',()=>{paused=!paused;el('pauseButton').textContent=paused?'▶ 再開':'Ⅱ 一時停止';if(el('clockPause'))syncClockButtons();});
 function syncClockButtons(){
   el('speedButton').textContent=`${speed}× 速度`;
-  el('clockSpeed').textContent=`${speed}×`;
-  el('clockPause').textContent=paused?'▶':'Ⅱ';
-  el('clockPause').setAttribute('aria-label',paused?'再開':'一時停止');
+  el('clockSpeed').textContent=speed>1?`▶▶ ${speed}×`:'▶▶';
+  el('clockPause').classList.toggle('on',paused);el('clockPlay').classList.toggle('on',!paused&&speed===1);el('clockSpeed').classList.toggle('on',!paused&&speed>1);
 }
 function toggleSpeed(){speed=nextSpeed(speed);syncClockButtons();}
 el('speedButton').addEventListener('click',toggleSpeed);
-el('clockSpeed').addEventListener('click',toggleSpeed);
-el('clockPause').addEventListener('click',()=>{el('pauseButton').click();syncClockButtons();});
+el('clockSpeed').addEventListener('click',()=>{if(paused)el('pauseButton').click();speed=nextSpeed(speed);syncClockButtons();});
+el('clockPlay').addEventListener('click',()=>{if(paused)el('pauseButton').click();speed=1;syncClockButtons();});
+el('clockPause').addEventListener('click',()=>{if(!paused)el('pauseButton').click();syncClockButtons();});
 el('clockNext').addEventListener('click',()=>{
   if(activeEvent)return;
   const count=ticksUntilNextDay(game.tick);
