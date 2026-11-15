@@ -50,15 +50,20 @@ export function advanceSurfaceEconomy(surface,game,owned,rented,day){
  const leasing=surface.leasedOut??[];
  const active=RENTALS.filter(p=>owned.includes(p.id)||rented.includes(p.id));
  const housing=active.filter(p=>PROPERTY_ROLES[p.id]?.capacity).reduce((n,p)=>n+PROPERTY_ROLES[p.id].capacity,0);
- const trust=Math.max(0,Math.min(100,surface.trust+(alert<25?2:alert<45?1:alert>75?-5:alert>55?-3:-1)+(active.some(p=>p.id==='clinic')?1:0)));
+ // v3.0: trust is pulled toward a target set by alert (mean-reverting with daily mood swings) instead of stepping to the bounds.
+ const tTarget=78-alert*.75+(active.some(p=>p.id==='clinic')?8:0)+Math.min(8,(surface.city?.lots?Object.values(surface.city.lots).filter(l=>l.facility==='garden').length*4:0));
+ const swing=((((day??0)*40503+17)>>>0)%7)-3;
+ const trust=Math.max(0,Math.min(100,Math.round(surface.trust+(tTarget-surface.trust)*.18+swing)));
  const target=25+housing+Math.round(trust*.25)-Math.round(alert*.24);
  const humans=Math.max(8,Math.min(160,surface.humans+(surface.humans<target?1:surface.humans>target?-2:0)));
  const visitors=Math.max(2,Math.round(humans*(.32+trust/175)*(1-alert/145)));
  const items=active.map(p=>{
   const role=PROPERTY_ROLES[p.id],isSublet=leasing.includes(p.id);
   const location=propertyLocation(p.id);
-  const gross=isSublet?Math.floor(p.rent*1.45):Math.round(role.base*(.3+visitors/32)*(0.4+trust/100)*location.accessibility);
-  const upkeep=isSublet?0:Math.max(2,Math.ceil(gross*.24));
+  // v3.0 balance: shops compete for the same visitors; the more businesses you run the thinner each one's share.
+  const share=1/(1+.1*Math.max(0,active.length-1));const wobble=.85+((((day??0)*31+p.id.length*17)>>>0)%31)/100;
+  const gross=isSublet?Math.floor(p.rent*1.15):Math.round(role.base*(.2+visitors/48)*(.35+trust/140)*location.accessibility*share*wobble*2.8);
+  const upkeep=isSublet?0:Math.max(3,Math.ceil(gross*.32)+2);
   return {id:p.id,name:p.name,gross,upkeep,net:gross-upkeep,leasedOut:isSublet,location:location.grade,frontage:location.frontage};
  });
  const income=items.reduce((n,p)=>n+p.gross,0),expenses=items.reduce((n,p)=>n+p.upkeep,0);

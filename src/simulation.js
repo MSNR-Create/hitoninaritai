@@ -79,13 +79,16 @@ export function stepGame(old){
     const eaten=0; // Communal distribution is handled by advanceColony once per day.
     s.money+=income;s.food+=harvest;
     // v2.5 balance: exposure counts half; alert also cools by 10% of its level each day.
-    s.alert=clamp100(Math.round(s.alert+exposure*.5-3-s.alert*.1-((s.mods??{}).alertDecay??0)));
+    // v3.0: alert drifts toward a baseline set by tonight's exposure, plus daily rumor noise — it lives in the middle range
+    // and spikes with incidents instead of pinning at 0 or 100.
+    {const base=6+exposure*2.2;const noise=(((s.day*2654435761)>>>0)%9)-3;
+     s.alert=clamp100(Math.round(s.alert+(base-s.alert)*.22+noise-((s.mods??{}).alertDecay??0)));}
     s.lastReport={day:s.day,income,harvest,salvage,shoppers,eaten,exposure,food:s.food,money:s.money};
     s.events.push(`第${s.day}日 朝：収入+${income}G、調達+${harvest}、調達品は共同倉庫へ`);
     s.day++;
   }
   if(clock===13)for(const r of s.residents)r.action=r.strikeDays>0?'ストライキ中':'休息中';
-  if(clock===43){for(const r of s.residents){r.fatigue=clamp100(r.fatigue-(r.strikeDays>0?16:12)-((s.mods??{}).restBonus??0));r.action=r.strikeDays>0?'ストライキ中':'地下で生活';}s.alert=clamp100(s.alert-2);}
+  if(clock===43){for(const r of s.residents){r.fatigue=clamp100(r.fatigue-(r.strikeDays>0?16:12)-((s.mods??{}).restBonus??0));r.action=r.strikeDays>0?'ストライキ中':'地下で生活';}}
   return s;
 }
 export function assignJob(state,id,job){

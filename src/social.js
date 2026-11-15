@@ -7,15 +7,20 @@ export const NEIGHBORS=Object.freeze([
 const cap=n=>Math.max(0,Math.min(100,n));
 export function initialSocial(){return {neighbors:NEIGHBORS.map(n=>({...n,converted:false})),links:{},history:[]};}
 export function contactFor(id){return NEIGHBORS[(id-1)%NEIGHBORS.length].id;}
+// v3.0: new humans keep moving into the neighborhood, so the pool of potential kin never runs dry.
+const SURN=['佐藤','鈴木','高橋','伊藤','渡辺','山本','中村','小林','加藤','吉田','山田','松本','井上','清水','森'],GIVEN=['ミオ','レン','ハナ','タクミ','アオイ','リク','サクラ','カイト','ユウ','メイ','ソラ','ナギ','ツムギ','ハルト','コハル'];
+function ensureNeighbors(social){let active=social.neighbors.filter(n=>!n.converted);let k=social.neighbors.length;
+ while(active.length<3){const name=SURN[(k*7)%SURN.length]+GIVEN[(k*11+3)%GIVEN.length];const n={id:`neighbor-${k+1}`,name,converted:false};social.neighbors.push(n);active.push(n);k++;}
+ return active;}
 function append(history,day,kind,message,residentId,reason){history.push({id:`day${day}-${history.length+1}`,day,kind,message,residentId,reason});}
 /** Applies once at day boundary, after provisions; explicit favorable/unfavorable feedback. */
 export function advanceSocial(old,game,colony,capacity){
  const social={neighbors:old.neighbors.map(n=>({...n})),links:Object.fromEntries(Object.entries(old.links).map(([k,v])=>[k,{...v}])),history:[...old.history]};
  const residents=game.residents.map(r=>({...r}));let alert=game.alert,conversion=null;
  for(const r of residents){
-  const neighborId=contactFor(r.id),neighbor=social.neighbors.find(n=>n.id===neighborId);
-  if(!neighbor||neighbor.converted)continue;
-  const l=social.links[r.id]??{neighborId,affinity:0,suspicion:0,meetings:0};
+  const active=ensureNeighbors(social);const prev=social.links[r.id];const prevN=prev&&social.neighbors.find(n=>n.id===prev.neighborId);
+  const neighbor=prevN&&!prevN.converted?prevN:active[(r.id-1)%active.length];const neighborId=neighbor.id;
+  const l=prev&&prev.neighborId===neighborId?prev:{neighborId,affinity:0,suspicion:0,meetings:0};
   const safe=r.impulse<30 && r.fatigue<=65 && r.lastNeeds?.food!==false && r.strikeDays===0;
   const dangerous=r.impulse>=60 || r.strikeDays>0;
   if(safe){l.affinity=Math.min(5,l.affinity+1);l.suspicion=Math.max(0,l.suspicion-12);l.meetings++;
