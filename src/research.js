@@ -21,6 +21,7 @@ export const TECHS=Object.freeze([
   {id:'shiftplan',name:'夜勤の段取り術',branch:'work',tier:1,req:[],cost:40,samples:1,work:3,desc:'夜勤報酬 +20%。'},
   {id:'stretch',name:'防腐ストレッチ',branch:'work',tier:2,req:['shiftplan'],cost:90,samples:2,work:6,desc:'勤務による疲労 −25%。'},
   {id:'makeup',name:'人間メイク術',branch:'work',tier:2,req:['shiftplan'],cost:120,samples:2,work:7,desc:'勤務1回の露見リスク −1。'},
+  {id:'autoprocure',name:'調達ルート確立',branch:'work',tier:2,req:['shiftplan'],cost:110,samples:1,work:5,desc:'不足物資を毎夕自動で買い出しリストに入れる（施設で作れる物は除く）。'},
   {id:'foreman',name:'現場リーダー制',branch:'work',tier:3,req:['stretch','makeup'],cost:220,samples:3,work:10,desc:'夜勤報酬 さらに +25%。'},
   {id:'research_base',name:'研究基盤Ⅰ',branch:'build',tier:1,req:[],cost:75,samples:2,work:4,desc:'研究試料抽出装置が建設可能に（試料の自給）。'},
   {id:'bunk',name:'二段ベッド設計',branch:'build',tier:1,req:[],cost:80,samples:1,work:4,desc:'共同住居1棟あたり定員 +2。'},

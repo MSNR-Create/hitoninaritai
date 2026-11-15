@@ -68,8 +68,8 @@ export function dailyColonists(residents,{washSlots=0,care=0,decayRelief=0}={}){
   return r;});
  // washing: worst decay first, care 1 each
  const order=[...next].sort((a,b)=>b.decay-a.decay);
- for(const r of order){if(washSlots<=0||careLeft<=0||r.decay<20)break;washSlots--;careLeft--;washed.push(r.name);
-  next=next.map(x=>x.id===r.id?{...x,decay:Math.max(0,Math.round((x.decay-8)*10)/10),fresh:18}:x);}
+ for(const r of order){if(washSlots<=0||r.decay<15)break;washSlots--;const withCare=careLeft>0;if(withCare)careLeft--;washed.push(r.name+(withCare?'':'(水洗い)'));
+  const amt=withCare?8:4;next=next.map(x=>x.id===r.id?{...x,decay:Math.max(0,Math.round((x.decay-amt)*10)/10),fresh:withCare?18:10}:x);}
  next=next.map(r=>({...r,odor:odorOf(r)}));
  return {residents:next,careUsed:care-careLeft,alertAdd:Math.min(12,Math.round(alertAdd)),levelUps,washed};
 }

@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {initialGame,stepGame} from '../src/simulation.js';
+import {ensureColonist,dailyColonists} from '../src/colonists.js';
+import {runProduction} from '../src/production.js';
+test('お任せ（内部作業） fills only the open facility posts, best dex first',()=>{let g=initialGame();
+ g={...g,residents:g.residents.map(ensureColonist).map((r,i)=>({...r,job:'autoin',fatigue:10,stats:{...r.stats,dex:i+1}})),internalSlots:{process:2,research:0}};
+ for(let t=0;t<61;t++)g=stepGame(g);const p=g.residents.filter(r=>r.activeJob==='process');assert.equal(p.length,2);assert.deepEqual(p.map(r=>r.stats.dex).sort(),[4,5]);
+ assert.ok(g.residents.filter(r=>r.activeJob==='rest').every(r=>r.action.startsWith('待機')));});
+test('alert cools off over days when nobody goes outside',()=>{let g={...initialGame(),alert:90};g={...g,residents:g.residents.map(r=>({...r,job:'rest'}))};
+ for(let t=0;t<120*5;t++)g=stepGame(g);assert.ok(g.alert<50,`alert ${g.alert}`);});
+test('wash station still rinses without 生活用品',()=>{const r=ensureColonist({id:2,name:'a'});const out=dailyColonists([{...r,decay:40,activeJob:'rest'}],{washSlots:2,care:0});assert.ok(out.residents[0].decay<40);assert.match(out.washed[0],/水洗い/);});
+test('a posted worker runs only its building recipe',()=>{const r=runProduction({salvage:4,residue:0,labwaste:0},100,[{name:'x',facility:'sorting',recipe:'auto',building:7}],{sorting:1});
+ assert.ok(r.log[0].ok);assert.equal(r.log[0].building,7);});

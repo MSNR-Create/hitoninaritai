@@ -35,7 +35,7 @@ function homeSpot(game,resident,world){const a=homeAssignments(game,world)[resid
  return [b.x+.05+(j%b.w)*Math.min(.85,(b.w-.7)/Math.max(1,b.w-1)),b.y+.05+(Math.floor(j/b.w)%b.h)*Math.min(.8,(b.h-.7)/Math.max(1,b.h-1))];}
 // v2.4 role workplace: the facility kind each processing resident used last night (world.workPlaces), else any.
 function workSpot(game,resident,world,kinds,idx){const fac=(world?.buildings??[]).filter(b=>kinds.includes(b.kind));if(!fac.length)return null;
- const want=world.workPlaces?.[resident.name];const pool=want?fac.filter(b=>b.kind===want):fac;const b=(pool.length?pool:fac)[Math.max(0,idx)%(pool.length||fac.length)];
+ const want=world.workPlaces?.[resident.name];const pool=want!=null?fac.filter(b=>b.id===want||b.kind===want):fac;const b=(pool.length?pool:fac)[Math.max(0,idx)%(pool.length||fac.length)];
  return {b,pt:[b.x+.1+(idx%2)*Math.min(.8,b.w-1.1),b.y+.5]};}
 const PROCESS_KINDS=['sorting','extractor','mushroom','kitchen','farm','water','chemical','culture','recycler','workshop','disguise','archives','lounge'];
 export function residentVisual(game,resident,world=null){

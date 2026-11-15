@@ -26,16 +26,19 @@ export function runProduction(inventory,money,workers,facilities,opts={}){
  const powered=r=>!r.power||power>0||hasFuel();
  const runnable=id=>{const r=CAT_RECIPES[id];return (slots[r.facility]??0)>0&&can(inv,r.in)&&cash>=r.fee&&fits(r)&&powered(r);};
  const order=Object.keys(CAT_RECIPES).filter(id=>{const p=prefs[CAT_RECIPES[id].facility];return !p||p==='auto'||p===id;});
- const exec=(id,who)=>{const r=CAT_RECIPES[id];if(r.power&&!powerUp())return false;if(r.power)power--;
+ let curB=null;const exec=(id,who)=>{const r=CAT_RECIPES[id];if(r.power&&!powerUp())return false;if(r.power)power--;
   for(const [k,v] of Object.entries(r.in))inv[k]-=v;const out={...r.out};
   if(r.facility==='kitchen'&&out.food){if((inv.spices??0)>=1){inv.spices--;out.food+=2;}out.food+=mods.kitchenBonus??0;}
   if(id==='composting')out.compost+=mods.compostBonus??0;
   for(const [k,v] of Object.entries(out))inv[k]=(inv[k]??0)+v;cash-=r.fee;slots[r.facility]--;
-  log.push({worker:who,ok:true,recipe:id,name:r.name,out,fee:r.fee});return true;};
+  log.push({worker:who,ok:true,recipe:id,name:r.name,out,fee:r.fee,building:curB});return true;};
  for(const w of workers){
-  const runs=1+(w.extra?1:0);
-  for(let i=0;i<runs;i++){const id=order.find(runnable);
-   if(!id||!exec(id,w.name)){log.push({worker:w.name,ok:false,reason:Object.values(slots).every(v=>!v)?'加工施設がありません':'材料・処理費・電力・置き場のいずれかが不足'});break;}}
+  const runs=1+(w.extra?1:0);curB=w.building??null;
+  for(let i=0;i<runs;i++){
+   // v2.5: a worker posted to a facility runs only that facility's chosen recipe (or any of its recipes on おまかせ).
+   const ok=id=>{const r=CAT_RECIPES[id];return can(inv,r.in)&&cash>=r.fee&&fits(r)&&powered(r);};
+   const id=w.facility?Object.keys(CAT_RECIPES).filter(x=>CAT_RECIPES[x].facility===w.facility&&(!w.recipe||w.recipe==='auto'||w.recipe===x)).find(ok):order.find(runnable);
+   if(!id||!exec(id,w.name)){log.push({worker:w.name,ok:false,building:curB,reason:w.facility?'材料・処理費・電力・置き場のいずれかが不足':Object.values(slots).every(v=>!v)?'加工施設がありません':'材料・処理費・電力・置き場のいずれかが不足'});break;}}
  }
  // automation centres: 2 unattended batches each (powered)
  for(let a=0;a<(facilities.automation??0)*2;a++){

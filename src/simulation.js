@@ -15,7 +15,8 @@ export const JOBS=Object.freeze({
   research:{name:'地下研究',icon:'🧪',pay:0,food:0,fatigue:8,exposure:0},
   process:{name:'素材加工',icon:'🏭',pay:0,food:0,fatigue:8,exposure:0},
   rest:{name:'休息',icon:'🛌',pay:0,food:0,fatigue:-30,exposure:0},
-  auto:{name:'お任せ',icon:'🤖',pay:0,food:0,fatigue:0,exposure:0}
+  auto:{name:'お任せ（バイト）',icon:'🤖',pay:0,food:0,fatigue:0,exposure:0},
+  autoin:{name:'お任せ（内部作業）',icon:'🏠',pay:0,food:0,fatigue:0,exposure:0}
 });
 const STAT_LABEL={str:'腕力',dex:'器用',int:'知性',soc:'社交',res:'耐腐敗'};
 export function jobEligible(r,id){const req=JOBS[id]?.req;if(!req||!r.level)return true;if((req.level??1)>(r.level??1))return false;return Object.entries(req.stats??{}).every(([k,v])=>(r.stats?.[k]??2)>=v);}
@@ -42,10 +43,16 @@ export function stepGame(old){
     for(const r of s.residents){
       // Lock job at night start. Mid-shift assignment changes affect NEXT night.
       if(r.strikeDays>0){r.activeJob='rest';r.action='ストライキ中';}
-      else {r.activeJob=r.fatigue>=85?'rest':r.job==='auto'?chooseAutoJob(r,s):(jobEligible(r,r.job)?r.job:'clean');
+      else {r.activeJob=r.fatigue>=85?'rest':r.job==='autoin'?'rest':r.job==='auto'?chooseAutoJob(r,s):(jobEligible(r,r.job)?r.job:'clean');
       if(r.level&&OUTSIDE.has(r.activeJob)&&!canGoOutside(r)){r.activeJob='rest';r.action='腐敗・臭気で外勤不可';continue;}
       r.action=r.activeJob==='rest'?'休息中':'出勤中';}
     }
+    // v2.5: お任せ（内部作業） fills facility staff slots by stats (int→research, dex→process).
+    {const slots={...(s.internalSlots??{process:0,research:0})};for(const r of s.residents)if(r.job!=='autoin'&&(r.activeJob==='process'||r.activeJob==='research'))slots[r.activeJob]=(slots[r.activeJob]??0)-1;
+     const pool=s.residents.filter(r=>r.job==='autoin'&&r.strikeDays===0&&r.fatigue<70);const st=(r,k)=>r.stats?.[k]??2;
+     for(const [job,stat] of [['research','int'],['process','dex']]){pool.sort((a,b)=>st(b,stat)-st(a,stat));
+      while((slots[job]??0)>0){const r=pool.find(x=>x.activeJob==='rest');if(!r)break;r.activeJob=job;r.action='出勤中';slots[job]--;}}
+     for(const r of pool)if(r.activeJob==='rest')r.action='待機（空きポストなし）';}
     // v2.4: shopping list needs carriers — auto residents switch to 買い出し (3 packs each).
     {let need=Math.ceil((s.shoppingPacks??0)/3)-s.residents.filter(r=>r.activeJob==='shopping').length;
      for(const r of s.residents){if(need<=0)break;if(r.job==='auto'&&r.activeJob!=='rest'&&r.activeJob!=='forage'&&(!r.level||canGoOutside(r))){r.activeJob='shopping';r.action='出勤中';need--;}}}
@@ -71,7 +78,8 @@ export function stepGame(old){
     }
     const eaten=0; // Communal distribution is handled by advanceColony once per day.
     s.money+=income;s.food+=harvest;
-    s.alert=clamp100(s.alert+exposure-3-((s.mods??{}).alertDecay??0));
+    // v2.5 balance: exposure counts half; alert also cools by 10% of its level each day.
+    s.alert=clamp100(Math.round(s.alert+exposure*.5-3-s.alert*.1-((s.mods??{}).alertDecay??0)));
     s.lastReport={day:s.day,income,harvest,salvage,shoppers,eaten,exposure,food:s.food,money:s.money};
     s.events.push(`第${s.day}日 朝：収入+${income}G、調達+${harvest}、調達品は共同倉庫へ`);
     s.day++;

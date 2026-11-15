@@ -251,3 +251,14 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 #researchDetailDesc{display:grid;gap:3px;margin:6px 0}
 .rd-row{display:grid;grid-template-columns:5.5em 1fr;gap:6px;font-size:12px;line-height:1.45}
 .rd-row b{color:#9fd3c7;font-weight:600}.rd-row i{font-style:normal;color:#e8f1ee}
+.plan-row{display:grid;grid-template-columns:auto 1fr auto;gap:6px 8px;align-items:center;padding:8px;margin:6px 0;border:1px solid #4d6f72;border-radius:10px;background:#18323b}
+.plan-head{font-weight:700;font-size:12px;white-space:nowrap}.plan-row select{min-width:0;width:100%;font-size:12px;padding:6px;border-radius:8px;background:#0f2630;color:#e7f1ec;border:1px solid #577a80}
+.plan-staff{display:flex;align-items:center;gap:4px;font-size:12px}.plan-staff button{width:28px;height:28px;border-radius:8px;border:1px solid #6d8f86;background:#345e55;font-weight:700}.plan-staff b{min-width:2.4em;text-align:center}
+.plan-who{grid-column:1/-1;color:#b3ccc3;font-size:10px}
+.procure-dialog{width:min(94vw,460px);max-height:88dvh;overflow:auto;border:2px solid #698d8a;border-radius:14px;background:#182e3c;color:#eff4e9;padding:14px}
+.procure-dialog h2{margin:0 0 6px;font-size:18px}.procure-dialog p{font-size:12px;line-height:1.6;margin:4px 0}
+.procure-rows{display:grid;gap:5px;margin:8px 0}.procure-row{display:grid;grid-template-columns:28px 1fr auto 52px;gap:6px;align-items:center;padding:6px;border-radius:9px;background:#203b42;font-size:12px}
+.procure-row.need{background:#4a3a24;border:1px solid #a98a4a}.procure-row .pi{font-size:20px}.procure-row small{display:block;color:#bcd2cb;font-size:10px}.procure-row .pq{font-size:10px;color:#cfe0da;text-align:right}
+.procure-row input{width:52px;padding:6px;border-radius:8px;border:1px solid #6d8f86;background:#0f2630;color:#fff;font-size:14px;text-align:center}
+.procure-total{font-weight:700;color:#f0dfa7}.procure-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}.procure-actions button{padding:11px;border-radius:9px;border:0;font-weight:700;background:#3a5560}.procure-actions #procureGo{background:#a5cdaa;color:#17352b}
+.procure-row[hidden]{display:none}
