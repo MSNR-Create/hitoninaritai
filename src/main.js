@@ -850,12 +850,22 @@ function updateResearchPanel(note=''){
  const st=researchState(colony),active=st.active?techById(st.active):null;
  el('researchStatus').textContent=note||(active?`研究中：${active.name} ${st.progress}/${active.work}pt`:`完了 ${colony.completedResearch.length}/${TECHS.length}・研究室${connectedLabs()}棟`);
  el('researchBar').style.width=active?`${Math.round(st.progress/active.work*100)}%`:'0%';
- if(!tree.dataset.built){tree.dataset.built='1';
-  for(const [bid,br] of Object.entries(BRANCHES)){const col=document.createElement('div');col.className='research-branch';col.innerHTML=`<b>${br.icon} ${br.name}</b>`;
-   for(const t of TECHS.filter(t=>t.branch===bid)){const btn=document.createElement('button');btn.className='research-node';btn.dataset.node=t.id;const tic=Object.values(FACILITY_DEFS).find(f=>f.tech===t.id)?.icon??BRANCHES[t.branch].icon;btn.innerHTML=`<span class="tic" aria-hidden="true">${tic}</span>${t.name}<small>${t.cost}G・資材${t.samples}・${t.work}pt</small>`;btn.addEventListener('click',()=>{selectedTech=t.id;updateResearchPanel();});col.append(btn);}
-   tree.append(col);}
+ if(!tree.dataset.built){tree.dataset.built='1';tree.classList.add('tree-mode');
+  // v2.9: strategy-game style tree — tiers are columns, each branch is a lane, prerequisites are drawn as connectors.
+  const T=Math.max(...TECHS.map(t=>t.tier));const wrap=document.createElement('div');wrap.className='tree-canvas';wrap.style.gridTemplateColumns=`repeat(${T},128px)`;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('tree-lines');wrap.append(svg);
+  let row=1;for(let t=1;t<=T;t++){const h=document.createElement('div');h.className='tier-head';h.textContent=['','Ⅰ 基礎','Ⅱ 発展','Ⅲ 応用','Ⅳ 到達'][t]??`Tier${t}`;h.style.gridColumn=t;h.style.gridRow=row;wrap.append(h);}row++;
+  for(const [bid,br] of Object.entries(BRANCHES)){const list=TECHS.filter(t=>t.branch===bid);if(!list.length)continue;
+   const lab=document.createElement('div');lab.className='lane-head';lab.textContent=`${br.icon} ${br.name}`;lab.style.gridColumn=`1 / span ${T}`;lab.style.gridRow=row;wrap.append(lab);row++;
+   const slots={};let rows=1;
+   for(const t of list){const k=slots[t.tier]=(slots[t.tier]??0)+1;rows=Math.max(rows,k);const btn=document.createElement('button');btn.className='research-node';btn.dataset.node=t.id;
+    const tic=Object.values(FACILITY_DEFS).find(f=>f.tech===t.id)?.icon??br.icon;btn.innerHTML=`<span class="tic" aria-hidden="true">${tic}</span>${t.name}<small>${t.cost}G・資材${t.samples}・${t.work}pt</small>`;
+    btn.style.gridColumn=t.tier;btn.style.gridRow=row+k-1;btn.addEventListener('click',()=>{selectedTech=t.id;updateResearchPanel();});wrap.append(btn);}
+   row+=rows;}
+  tree.append(wrap);new ResizeObserver(()=>{tree.dataset.lines='';drawTreeLines();}).observe(wrap);
  }
  for(const btn of tree.querySelectorAll('[data-node]')){const s2=techStatus(colony,btn.dataset.node);btn.classList.toggle('completed',s2==='done');btn.classList.toggle('locked',s2==='locked');btn.classList.toggle('active',s2==='active');btn.classList.toggle('selected',selectedTech===btn.dataset.node);btn.setAttribute('aria-label',techById(btn.dataset.node).name+({done:' 完了',locked:' 未解放',active:' 研究中',available:''})[s2]);}
+ drawTreeLines();
  const t=selectedTech&&techById(selectedTech);
  if(t){const s2=techStatus(colony,t.id);el('researchDetailName').textContent=`${t.name}（${BRANCHES[t.branch].name}）`;{const fac=Object.values(FACILITY_DEFS).filter(f=>f.tech===t.id);const next=TECHS.filter(n=>n.req.includes(t.id));const labs=Math.max(1,connectedLabs());const nights=Math.ceil(t.work/labs);
    const stTxt={done:'✅ 完了済み',active:'⏳ 研究中',locked:'🔒 前提研究が未完了',available:'🟢 研究できます'}[s2];
@@ -931,3 +941,13 @@ function openBuilding(id){const w=worlds.underground,b=w.buildings.find(x=>x.id=
   host.append(btn);const note=document.createElement('small');note.textContent=can?`強化後：Lv${lv+1}で効果アップ${game.money<cost?'（資金不足）':''}`:'研究ツリーを進めると強化できるようになります。';host.append(note);}
  else{const s=document.createElement('small');s.textContent='最大レベルです。';host.append(s);}
  if(!d.open)d.showModal();}
+
+function drawTreeLines(){const tree=el('researchTree'),wrap=tree?.querySelector('.tree-canvas'),svg=wrap?.querySelector('.tree-lines');if(!svg||!wrap.offsetWidth)return;
+ const sig=colony.completedResearch.join()+'|'+(researchState(colony).active??'')+'|'+selectedTech+'|'+wrap.offsetWidth+'x'+wrap.offsetHeight;if(tree.dataset.lines===sig)return;tree.dataset.lines=sig;
+ svg.setAttribute('width',wrap.scrollWidth);svg.setAttribute('height',wrap.scrollHeight);svg.replaceChildren();const base=wrap.getBoundingClientRect();
+ const box=id=>{const b=wrap.querySelector(`[data-node="${id}"]`);return b&&b.getBoundingClientRect();};
+ for(const t of TECHS)for(const q of t.req){const a=box(q),b=box(t.id);if(!a||!b)continue;
+  const x1=a.right-base.left,y1=a.top+a.height/2-base.top,x2=b.left-base.left,y2=b.top+b.height/2-base.top,mx=(x1+x2)/2;
+  const done=colony.completedResearch.includes(q),hot=selectedTech===t.id||selectedTech===q;
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',`M${x1} ${y1} C${mx} ${y1},${mx} ${y2},${x2} ${y2}`);
+  const cross=techById(q).branch!==t.branch;p.setAttribute('class','tl'+(done?' done':'')+(hot?' hot':'')+(cross?' cross':''));svg.append(p);}}
