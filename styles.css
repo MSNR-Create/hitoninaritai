@@ -297,3 +297,4 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 .tier-head{font-size:11px;font-weight:700;color:#9fd3c7;text-align:center;border-bottom:1px solid #3c5a63;padding-bottom:2px}
 .lane-head{font-size:11px;font-weight:700;color:#f0dfa7;margin-top:6px;padding:2px 6px;border-left:3px solid #f0dfa7;background:#ffffff08;border-radius:4px}
 .tree-lines .tl.cross{opacity:.18}.tree-lines .tl.cross.hot{opacity:1}
+.vol-row{display:grid;grid-template-columns:4em 1fr;align-items:center;gap:8px;font-size:12px;margin:6px 0}.vol-row input{width:100%}

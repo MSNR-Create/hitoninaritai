@@ -12,6 +12,7 @@ import { lotAt } from './city.js';
 import { FACILITIES, runProduction, ITEM_NAMES, SALVAGE_PACK } from './production.js';
 import * as ST from './storage.js';
 import { homeCapacity, homeAssignments } from './agent.js';
+import { unlockAudio, setMusic, sfx, setAudio, audioPrefs, EVENT_SFX } from './audio.js';
 import { FACILITY_DEFS, ITEMS, BUILD_CATEGORIES, TOOLS, RECIPES as CAT_RECIPES, recipesFor } from './catalog.js';
 import { dailyFacilityEffects } from './facility-effects.js';
 import { planCorridor, applyCorridor, buildingPreview } from './planning.js';
@@ -152,7 +153,7 @@ function buildAt(tile){
   if(!second){buildChoice={kind:'unlock',x:tile.x,y:tile.y};status(`${zone.name}：開放費用 ${zone.cost}G。もう一度この区画をタップして確定。`);updatePlacement();return;}
   const result=applyConstruction(world,{type:'unlock',zoneId:zone.id},game.money);
   if(!result.ok){status(result.reason);return;}
-  worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',zone.name+'の区画開放');buildChoice=null;status(`${zone.name} を開放（−${result.cost}G）`);
+  worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',zone.name+'の区画開放');sfx('build');buildChoice=null;status(`${zone.name} を開放（−${result.cost}G）`);
  }else if(tool==='path'){
   const next=chooseCorridor(corridorChoice,tile);corridorChoice=next.state;
   pathStart=corridorChoice.start;
@@ -172,7 +173,7 @@ function buildAt(tile){
   if(!v.ok){status('配置不可：'+v.reason);updatePlacement();return;}
   const result=applyConstruction(world,{type:'build',kind:tool,x:buildChoice.x,y:buildChoice.y,rotated:buildRotated},game.money);
   if(!result.ok){status(result.reason);return;}
-  worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',FACILITY_NAMES[tool]+'の建築');buildChoice=null;status(`${FACILITY_NAMES[tool]} ${v.w}×${v.h} を建設（−${result.cost}G）`);
+  worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',FACILITY_NAMES[tool]+'の建築');sfx('build');buildChoice=null;status(`${FACILITY_NAMES[tool]} ${v.w}×${v.h} を建設（−${result.cost}G）`);
  }
  refreshConnectivity();hoverTile=null;updatePlacement();updateSelection();updateEconomy();
 }
@@ -556,7 +557,7 @@ async function restartGame(){resetting=true;try{await clearSnapshots();}catch{}l
 let resetting=false,resetArm=0;
 el('newGameButton').addEventListener('click',()=>{const b=el('newGameButton');if(Date.now()-resetArm>4000){resetArm=Date.now();b.textContent='⚠ もう一度押すと全データを消して最初から';b.classList.add('danger');setTimeout(()=>{if(Date.now()-resetArm>=4000){b.textContent='最初から';b.classList.remove('danger');}},4100);return;}restartGame();});
 const eventCanvas=el('eventCanvas'),eventCtx=eventCanvas.getContext('2d');
-function showNextEvent(){if(activeEvent||!eventQueue.length)return;activeEvent=eventQueue.shift();const def=sceneDefinition(activeEvent.kind);el('eventTitle').textContent=def.title;el('eventNarrative').textContent=activeEvent.message||def.desc;el('eventReason').textContent='原因：'+(activeEvent.reason||def.desc);el('eventDay').textContent=`第${activeEvent.day??game.day}日`;el('eventCount').textContent=`残り ${eventQueue.length}件`;el('eventDialog').showModal();eventFrame=requestAnimationFrame(paintActiveEvent);}
+function showNextEvent(){if(activeEvent||!eventQueue.length)return;activeEvent=eventQueue.shift();sfx(EVENT_SFX[activeEvent.kind]);const def=sceneDefinition(activeEvent.kind);el('eventTitle').textContent=def.title;el('eventNarrative').textContent=activeEvent.message||def.desc;el('eventReason').textContent='原因：'+(activeEvent.reason||def.desc);el('eventDay').textContent=`第${activeEvent.day??game.day}日`;el('eventCount').textContent=`残り ${eventQueue.length}件`;el('eventDialog').showModal();eventFrame=requestAnimationFrame(paintActiveEvent);}
 function paintActiveEvent(t){if(!activeEvent)return;activeEvent.t0??=t;paintEvent(eventCtx,activeEvent.kind,t-activeEvent.t0,eventCanvas.width,eventCanvas.height);eventFrame=requestAnimationFrame(paintActiveEvent);}
 function closeEvent(){if(eventFrame!==null)cancelAnimationFrame(eventFrame);eventFrame=null;activeEvent=null;el('eventDialog').close();showNextEvent();}
 el('eventNext').addEventListener('click',closeEvent);
@@ -589,7 +590,7 @@ syncClockButtons();
 updateEconomy();
 function advanceOneTick(){
 const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().homeBonus;game=stepGame({...game,mods:currentMods(),internalSlots:internalSlots(),shoppingPacks:Object.values(colony.shoppingList??{}).reduce((a,b)=>a+b,0)});
-      {const ck=game.tick%120;if(ck>=60)worlds.underground.workPlaces=Object.fromEntries(staffing(game.residents).posts.flatMap(p=>p.workers.map(r=>[r.name,p.b.id])));
+      {const ck=game.tick%120;if(ck===0)sfx('dawn');if(ck===60)sfx('dusk');setMusic(colony.gameOver?null:(game.alert>=70||(colony.starveDays??0)>=3)?'danger':ck>=60?'night':'day');if(ck>=60)worlds.underground.workPlaces=Object.fromEntries(staffing(game.residents).posts.flatMap(p=>p.workers.map(r=>[r.name,p.b.id])));
        if(ck===50&&!Object.keys(colony.shoppingList??{}).length){if(colony.completedResearch.includes('autoprocure')){autoProcure();updateColonyPanel('🤖 自動調達：不足物資を買い出しリストに入れました。');}else if(procureOpenedDay!==game.day)openProcure(true);}}
       if(game.day!==economyDay){
         const completedDay=game.day-1;moneyChange(game.money-beforeTickMoney,'アルバイト','外部勤務の報酬',completedDay);const beforeEventsMoney=game.money;
@@ -881,9 +882,9 @@ function updateTree(){updateResearchPanel();}
 showPanel(null);updateTree();
 
 // ===== v2.6: notices, famine, game over, raids =====
-function showNotice(title,body){el('noticeTitle').textContent=title;el('noticeBody').textContent=body;const d=el('noticeDialog');if(!d.open)d.showModal();}
+function showNotice(title,body){sfx(/成功|💰/.test(title)?'coin':/💀|飢餓|🩸/.test(title)?'death':'bad');el('noticeTitle').textContent=title;el('noticeBody').textContent=body;const d=el('noticeDialog');if(!d.open)d.showModal();}
 el('noticeClose').addEventListener('click',()=>el('noticeDialog').close());
-function gameOver(title,body){colony={...colony,gameOver:{title,body,day:game.day}};paused=true;syncClockButtons?.();
+function gameOver(title,body){sfx('gameover');setMusic(null);colony={...colony,gameOver:{title,body,day:game.day}};paused=true;syncClockButtons?.();
  el('gameOverTitle').textContent=`GAME OVER — ${title}`;el('gameOverBody').textContent=`${body}（第${game.day}日・資金${game.money}G）`;const d=el('gameOverDialog');if(!d.open)d.showModal();saveNow();}
 el('gameOverRestart').addEventListener('click',restartGame);
 el('gameOverDialog').addEventListener('cancel',e=>e.preventDefault());
@@ -937,7 +938,7 @@ function openBuilding(id){const w=worlds.underground,b=w.buildings.find(x=>x.id=
  if(!upg){const s=document.createElement('small');s.textContent='この施設は強化の対象外です。';host.append(s);}
  else if(lv<3){const cost=upgradeCost(b);const btn=document.createElement('button');const can=lv<mx;
   btn.textContent=can?`⬆ Lv${lv+1}に強化（${cost}G）`:`🔒 Lv${lv+1}：研究を${lv+1===2?4:10}件完了で解放（現在${colony.completedResearch.length}件）`;btn.disabled=!can||game.money<cost;
-  btn.addEventListener('click',()=>{if(game.money<cost)return;b.level=lv+1;game={...game,money:game.money-cost};moneyChange(-cost,'建設',`${b.name}をLv${lv+1}に強化`);updateEconomy();updateColonyPanel();renderFacilityPlans(true);saveNow();openBuilding(id);});
+  btn.addEventListener('click',()=>{if(game.money<cost)return;b.level=lv+1;sfx('levelup');game={...game,money:game.money-cost};moneyChange(-cost,'建設',`${b.name}をLv${lv+1}に強化`);updateEconomy();updateColonyPanel();renderFacilityPlans(true);saveNow();openBuilding(id);});
   host.append(btn);const note=document.createElement('small');note.textContent=can?`強化後：Lv${lv+1}で効果アップ${game.money<cost?'（資金不足）':''}`:'研究ツリーを進めると強化できるようになります。';host.append(note);}
  else{const s=document.createElement('small');s.textContent='最大レベルです。';host.append(s);}
  if(!d.open)d.showModal();}
@@ -951,3 +952,8 @@ function drawTreeLines(){const tree=el('researchTree'),wrap=tree?.querySelector(
   const done=colony.completedResearch.includes(q),hot=selectedTech===t.id||selectedTech===q;
   const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',`M${x1} ${y1} C${mx} ${y1},${mx} ${y2},${x2} ${y2}`);
   const cross=techById(q).branch!==t.branch;p.setAttribute('class','tl'+(done?' done':'')+(hot?' hot':'')+(cross?' cross':''));svg.append(p);}}
+
+// ===== v3.1 audio =====
+for(const ev of ['pointerdown','keydown'])window.addEventListener(ev,()=>{unlockAudio();setMusic(colony.gameOver?null:(game.tick%120)>=60?'night':'day');},{capture:true});
+{const m=el('audioMute'),b=el('bgmVol'),f=el('sfxVol');if(m&&b&&f){b.value=audioPrefs.bgm;f.value=audioPrefs.sfx;const sync=()=>{m.textContent=audioPrefs.muted?'🔇 ミュート中':'🔊 音あり';};sync();
+ m.addEventListener('click',()=>{setAudio({muted:!audioPrefs.muted});sync();});b.addEventListener('input',()=>setAudio({bgm:+b.value}));f.addEventListener('input',()=>{setAudio({sfx:+f.value});sfx('coin');});}}
