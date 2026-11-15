@@ -781,7 +781,14 @@ function updateResearchPanel(note=''){
  }
  for(const btn of tree.querySelectorAll('[data-node]')){const s2=techStatus(colony,btn.dataset.node);btn.classList.toggle('completed',s2==='done');btn.classList.toggle('locked',s2==='locked');btn.classList.toggle('active',s2==='active');btn.classList.toggle('selected',selectedTech===btn.dataset.node);btn.setAttribute('aria-label',techById(btn.dataset.node).name+({done:' 完了',locked:' 未解放',active:' 研究中',available:''})[s2]);}
  const t=selectedTech&&techById(selectedTech);
- if(t){const s2=techStatus(colony,t.id);el('researchDetailName').textContent=`${t.name}（${BRANCHES[t.branch].name}）`;el('researchDetailDesc').textContent=`${t.desc} ／ 費用 ${t.cost}G・研究資材${t.samples}・${t.work}pt`+(t.req.length?` ／ 前提：${t.req.map(q=>techById(q).name).join('・')}`:'');
+ if(t){const s2=techStatus(colony,t.id);el('researchDetailName').textContent=`${t.name}（${BRANCHES[t.branch].name}）`;{const fac=Object.values(FACILITY_DEFS).filter(f=>f.tech===t.id);const next=TECHS.filter(n=>n.req.includes(t.id));const labs=Math.max(1,connectedLabs());const nights=Math.ceil(t.work/labs);
+   const stTxt={done:'✅ 完了済み',active:'⏳ 研究中',locked:'🔒 前提研究が未完了',available:'🟢 研究できます'}[s2];
+   const rows=[['状態',stTxt],['効果',t.desc]];
+   for(const f of fac)rows.push(['解放施設',`${f.icon} ${f.name}${f.desc?`：${f.desc}`:''}${f.cost!=null?`（建設 ${f.cost}G）`:''}`]);
+   rows.push(['費用',`${t.cost}G・研究資材${t.samples}個（所持 ${colony.inventory?.samples??0}）`],['必要研究量',`${t.work}pt（担当1体・研究室${connectedLabs()}棟なら約${nights}夜）`]);
+   rows.push(['前提',t.req.length?t.req.map(q=>`${colony.completedResearch.includes(q)?'✓':'✗'} ${techById(q).name}`).join('・'):'なし']);
+   if(next.length)rows.push(['次に解放',next.map(n=>n.name).join('・')]);
+   const d=el('researchDetailDesc');d.replaceChildren();for(const [k,v] of rows){const r=document.createElement('span');r.className='rd-row';const b=document.createElement('b');b.textContent=k;const i=document.createElement('i');i.textContent=v;r.append(b,i);d.append(r);}}
   const b=el('researchStart');b.disabled=s2!=='available'||!!active;b.textContent=s2==='done'?'完了済み':s2==='active'?'研究中':s2==='locked'?'前提研究が必要':active?'他の研究が進行中':`研究開始 · ${t.cost}G＋資材${t.samples}`;}
 }
 function updateTree(){updateResearchPanel();}

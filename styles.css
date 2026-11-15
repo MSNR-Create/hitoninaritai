@@ -247,3 +247,7 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 .research-node .tic{display:block;font-size:20px;line-height:1.1}
 .viewport{position:relative}.rotate-build{position:absolute;z-index:6;width:44px;height:44px;border-radius:50%;border:2px solid #f2d77f;background:#3a3420;color:#fff7dc;font-size:24px;font-weight:700;line-height:1;box-shadow:0 3px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}.rotate-build[hidden]{display:none}
 .mini-btn{padding:4px 8px;font-size:11px;border-radius:8px;border:1px solid #8a5a4a;background:#4a2a24;color:#f8dcd0}
+.research-sticky{position:sticky;top:-14px;margin:-13px -14px 0;padding:13px 14px 8px;z-index:3;background:#203b42;padding-bottom:8px;box-shadow:0 6px 10px -6px rgba(0,0,0,.6)}
+#researchDetailDesc{display:grid;gap:3px;margin:6px 0}
+.rd-row{display:grid;grid-template-columns:5.5em 1fr;gap:6px;font-size:12px;line-height:1.45}
+.rd-row b{color:#9fd3c7;font-weight:600}.rd-row i{font-style:normal;color:#e8f1ee}
