@@ -1,11 +1,35 @@
 // v2.0-A town building: prosperity, housing-capped population growth, district unlocks
 // (ZDL-SD-020 §7) and player-usable vacant lots (空き地) on the surface.
 export const DISTRICTS=Object.freeze([
- {id:'old_town',name:'旧市街',need:null,housing:55,desc:'最初からある街。空き地4区画。'},
- {id:'commerce',name:'商業通り',need:{pop:45,prosperity:50,trust:45,alertBelow:70},housing:35,desc:'空き地+1・自動販売機が設置可能に。'},
- {id:'residential',name:'住宅新街区',need:{pop:75,prosperity:60,trust:55,alertBelow:60},housing:55,desc:'空き地+1・家庭菜園が設置可能に。'},
- {id:'logistics',name:'物流街区',need:{pop:110,prosperity:65,trust:55,alertBelow:60},housing:90,desc:'空き地+1・光回線が引けるように。'}
+ {id:'old_town',name:'旧市街',need:null,invest:0,housing:55,desc:'最初からある街。空き地4区画。'},
+ {id:'commerce',name:'商業通り',need:{pop:45,prosperity:50,trust:45,alertBelow:70},invest:400,housing:35,desc:'東へ大通りが延び、ショッピングモールが開業。空き地+1・自販機が設置可能に。'},
+ {id:'residential',name:'住宅新街区',need:{pop:75,prosperity:58,trust:52,alertBelow:65},invest:650,housing:60,desc:'南の丘に曲がりくねった坂道と新しい住宅地。空き地+1・家庭菜園が設置可能に。'},
+ {id:'logistics',name:'物流街区',need:{pop:110,prosperity:62,trust:55,alertBelow:60},invest:900,housing:70,desc:'東に物流センターと搬入路。空き地+1・光回線が引けるように。'},
+ {id:'parkland',name:'公園緑地',need:{pop:140,prosperity:65,trust:60,alertBelow:55},invest:1200,housing:60,desc:'森と池を残した大きな公園。人間の信頼が上がりやすくなる。'},
+ {id:'station',name:'駅前再開発',need:{pop:180,prosperity:70,trust:62,alertBelow:55},invest:1800,housing:90,desc:'南に新駅とロータリー。来客と人口が大きく伸びる。'},
+ {id:'business',name:'高層ビジネス街',need:{pop:230,prosperity:75,trust:65,alertBelow:50},invest:2600,housing:110,desc:'南東に高層オフィス群。地上事業の売上が伸びる。'},
+ {id:'metropolis',name:'大都市',need:{pop:300,prosperity:82,trust:70,alertBelow:45},invest:4000,housing:160,desc:'ホテルとタワーが並ぶ大都市に。街の最終段階。'}
 ]);
+// v3.5: what each district physically adds to the 32×32 surface. Outside the original 24×24 town the land is
+// wilderness (forest/meadow/pond) until a district develops it; roads are not limited to the grid.
+const R=(x0,y0,x1,y1)=>{const a=[];for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)a.push([x,y]);return a;};
+export const DISTRICT_FEATURES={
+ commerce:{roads:[...R(24,8,31,9)],buildings:[{kind:'mall',x:25,y:3,w:4,h:4,name:'ショッピングモール'},{kind:'market',x:29,y:4,w:3,h:3,name:'専門店'}]},
+ residential:{roads:[...R(8,24,9,26),...R(10,26,11,27),...R(12,27,13,28),...R(14,28,15,29)],buildings:[{kind:'humanHome',x:2,y:25,w:3,h:3,name:'丘の住宅'},{kind:'humanHome',x:5,y:28,w:3,h:3,name:'丘の住宅'},{kind:'school',x:10,y:29,w:4,h:3,name:'小学校'}]},
+ logistics:{roads:[...R(26,10,27,16)],buildings:[{kind:'warehouse',x:28,y:11,w:4,h:4,name:'物流センター'},{kind:'warehouse',x:24,y:11,w:2,h:3,name:'搬入倉庫'}]},
+ parkland:{park:[...R(24,17,31,23)],buildings:[]},
+ station:{roads:[...R(16,24,17,31),...R(18,24,23,25)],buildings:[{kind:'station',x:18,y:27,w:5,h:3,name:'新駅'},{kind:'cafe',x:18,y:30,w:3,h:2,name:'駅ナカカフェ'}]},
+ business:{roads:[...R(24,24,31,25)],buildings:[{kind:'office',x:25,y:26,w:3,h:3,name:'オフィスタワー'},{kind:'office',x:29,y:26,w:3,h:3,name:'金融ビル'},{kind:'office',x:25,y:29,w:3,h:3,name:'IT企業ビル'}]},
+ metropolis:{roads:[],buildings:[{kind:'hotel',x:29,y:29,w:3,h:3,name:'グランドホテル'},{kind:'mall',x:0,y:28,w:4,h:4,name:'駅前百貨店'},{kind:'office',x:24,y:0,w:4,h:3,name:'ランドマークタワー'}]}
+};
+/** Surface additions for the developed districts: roads, buildings, park; plus wilderness tiles still untouched. */
+export function cityLayer(city){
+ const roads=new Set(),buildings=[],park=new Set(),used=new Set();
+ for(const d of DISTRICTS){if(!city.districts.includes(d.id))continue;const f=DISTRICT_FEATURES[d.id];if(!f)continue;
+  for(const [x,y] of f.roads??[]){roads.add(x+','+y);used.add(x+','+y);}for(const [x,y] of f.park??[])park.add(x+','+y);
+  f.buildings.forEach((b,i)=>{buildings.push({id:`dist-${d.id}-${i}`,...b});for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)used.add(x+','+y);});}
+ return {roads,buildings,park,used};}
+
 export const LOTS=Object.freeze([
  {id:'lot-a',x:3,y:0,w:2,h:2,district:'old_town'},{id:'lot-b',x:21,y:0,w:2,h:2,district:'old_town'},
  {id:'lot-c',x:0,y:5,w:2,h:2,district:'old_town'},{id:'lot-d',x:21,y:5,w:2,h:2,district:'old_town'},
@@ -76,8 +100,13 @@ export function advanceCity(surface0,alert,day,{ownedHousing=0,businesses=0}={})
  city.prosperity=prosperity;
  // district unlocks (irreversible)
  for(const d of DISTRICTS){if(!d.need||city.districts.includes(d.id))continue;const n=d.need;
-  if(humans>=n.pop&&prosperity>=n.prosperity&&trust>=n.trust&&alert<n.alertBelow){city.districts=[...city.districts,d.id];events.push({kind:'district',id:d.id,message:`新街区「${d.name}」が開発された！ 人間の住宅枠+${d.housing}。${d.desc}`,reason:`人口${humans}・繁栄${Math.round(prosperity)}・信頼${trust}・警戒${alert}`});}}
+  // v3.5: conditions only make the district READY; the colony must fund the development (money sink).
+  const ok=humans>=n.pop&&prosperity>=n.prosperity&&trust>=n.trust&&alert<n.alertBelow;
+  if(ok&&city.ready!==d.id){city.ready=d.id;events.push({kind:'district',id:d.id,message:`「${d.name}」の開発計画が持ち上がった！ ${d.invest}Gを出資すると開発が始まります（街の発展パネル）。`,reason:`人口${humans}・繁栄${Math.round(prosperity)}・信頼${trust}・警戒${alert}`});}
+  break;}
  city.history=[...(city.history??[]),{day,humans,prosperity:Math.round(prosperity)}].slice(-30);
  return {surface:{...surface,humans,trust,city},money,food,alertAdd,events};
 }
+export function investDistrict(city,money){const d=nextDistrict(city);if(!d)return {ok:false,reason:'すべて開発済みです'};if(city.ready!==d.id)return {ok:false,reason:'開発条件をまだ満たしていません'};if(money<d.invest)return {ok:false,reason:`資金不足（${d.invest}G）`};
+ return {ok:true,cost:d.invest,money:money-d.invest,district:d,city:{...city,ready:null,districts:[...city.districts,d.id]}};}
 export function nextDistrict(city){return DISTRICTS.find(d=>d.need&&!city.districts.includes(d.id));}

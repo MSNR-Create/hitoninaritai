@@ -71,6 +71,10 @@ const PROPS={
  tv(ctx,x,y){box(ctx,x,y,-10,10,-5,5,8,C.wood);const [a,b]=P(x,y,0,-2,8);px(ctx,a-9,b-12,18,11,'#1a1a1a');px(ctx,a-8,b-11,16,9,`hsl(${(T*40)%360},50%,45%)`);},
  forklift(ctx,x,y){box(ctx,x,y,-8,8,-6,6,10,['#e0b040','#b08a28','#8a6a18','#3a2a08']);px(ctx,x-3,y-24,2,14,'#3a3a3a');px(ctx,x+5,y-24,2,14,'#3a3a3a');px(ctx,x-3,y-24,10,2,'#3a3a3a');px(ctx,x-12,y-8,6,2,'#5a6070');for(const d of [-6,6])px(ctx,x+d-2,y-2,4,4,'#1a1a1a');},
  rack(ctx,x,y){box(ctx,x,y,-13,13,-5,5,30,['#4a6a8a','#3a5a7a','#2a4a6a','#14243a'],{left:L=>{for(let r=0;r<3;r++){quad(ctx,L,0,1,.33*r+.02,.33*r+.05,'#e0b040');for(let k=0;k<3;k++)quad(ctx,L,.06+k*.32,.3+k*.32,.33*r+.08,.33*r+.3,'#c99a62');}}});},
+ gates(ctx,x,y){box(ctx,x,y,-3,3,-12,12,14,C.steel,{right:R=>{quad(ctx,R,.3,.7,.6,.9,blink(1)?'#40e080':'#2a6a4a');}});px(ctx,x+4,y-12,10,2,'#e0b040');},
+ bench(ctx,x,y){box(ctx,x,y,-12,12,-3,3,5,C.wood);box(ctx,x,y,-12,12,-4,-2,11,C.wood);for(const u of [-10,10]){const [a,b]=P(x,y,u,2);px(ctx,a-1,b-1,2,3,'#3a3a3a');}},
+ barricade(ctx,x,y){box(ctx,x,y,-14,14,-4,4,22,C.dark,{left:L=>{for(let k=0;k<4;k++)quad(ctx,L,0,1,.1+k*.22,.18+k*.22,k%2?'#e0b040':'#3a3a3a');quad(ctx,L,.42,.58,.2,.95,'#7a8494');}});for(let k=0;k<4;k++){const [a,b]=P(x,y,-11+k*7,-4,22);px(ctx,a,b-6,2,6,'#9aa4b2');px(ctx,a,b-8,2,2,'#c8ced8');}},
+ alarm(ctx,x,y){px(ctx,x-1,y-26,2,24,'#5a6070');const on=blink(3);px(ctx,x-5,y-32,10,7,on?'#f04030':'#8a2a24');if(on){ctx.fillStyle='rgba(255,60,40,.25)';ctx.beginPath();ctx.arc(x,y-29,14,0,7);ctx.fill();}box(ctx,x+2,y+2,-6,6,-6,6,8,C.steel);},
  clinicbed(ctx,x,y){bedAt(ctx,x,y,'#a8d0e8');px(ctx,x-15,y-14,2,10,'#c8ced8');px(ctx,x+12,y-12,2,8,'#c8ced8');},
 };
 function bedAt(ctx,x,y,blanket,upper=false){
@@ -108,6 +112,12 @@ export const ROOM_ART={
  market:[[0,0,'cans'],[1,0,'cans'],[2,0,'fridge'],[1,1,'register'],[2,2,'crates'],[0,2,'plant']],
  cafe:[[0,0,'espresso'],[1,0,'fridge'],[1,1,'cafetable'],[2,2,'cafetable'],[0,2,'plant'],[2,0,'menuboard']],
  clinic:[[0,0,'clinicbed'],[1,0,'computer'],[2,0,'ivstand'],[0,1,'clinicbed'],[2,2,'plant']],
+ mall:[[0,0,'cans'],[1,0,'fridge'],[2,0,'cans'],[3,0,'menuboard'],[0,1,'register'],[1,1,'plant'],[2,1,'register'],[3,1,'cans'],[0,2,'cafetable'],[1,2,'cafetable'],[2,2,'espresso'],[3,2,'plant'],[0,3,'sofa'],[1,3,'lamp'],[2,3,'cans'],[3,3,'crates']],
+ school:[[0,0,'whiteboard'],[1,0,'readdesk'],[2,0,'readdesk'],[3,0,'bookcase'],[0,1,'readdesk'],[1,1,'readdesk'],[2,1,'plant'],[3,1,'readdesk'],[0,2,'shelf'],[2,2,'computer'],[3,2,'plant']],
+ station:[[0,0,'menuboard'],[1,0,'gates'],[2,0,'gates'],[3,0,'gates'],[4,0,'register'],[0,1,'bench'],[1,1,'bench'],[2,1,'lamp'],[3,1,'bench'],[4,1,'plant'],[0,2,'fridge'],[2,2,'bench'],[4,2,'cans']],
+ office:[[0,0,'computer'],[1,0,'computer'],[2,0,'whiteboard'],[0,1,'computer'],[1,1,'plant'],[2,1,'computer'],[0,2,'sofa'],[1,2,'computer'],[2,2,'shelf'],[3,0,'computer'],[3,1,'computer'],[3,2,'plant']],
+ hotel:[[0,0,'register'],[1,0,'plant'],[2,0,'lamp'],[0,1,'sofa'],[1,1,'cafetable'],[2,1,'bed'],[0,2,'bed'],[1,2,'tv'],[2,2,'bed']],
+ gate:[[0,0,'barricade'],[1,0,'alarm'],[0,1,'barricade'],[1,1,'barricade']],
  warehouse:[[0,0,'rack'],[1,0,'rack'],[2,0,'rack'],[0,1,'pallet'],[2,2,'forklift'],[1,2,'crates']]
 };
 export function hasRoomArt(kind){return !!ROOM_ART[kind];}

@@ -50,12 +50,19 @@ export const TECHS=Object.freeze([
   {id:'archives_research',name:'地下知識アーカイブ',branch:'auto',tier:2,req:['research_base'],cost:175,samples:2,work:8,desc:'地下図書館が建設可能に。'},
   {id:'mechanization',name:'機械組立工学',branch:'auto',tier:2,req:['electricity','recycling'],cost:210,samples:3,work:10,desc:'機械組立室が建設可能に（電子部品）。'},
   {id:'sorting_ai',name:'自動仕分けAI',branch:'auto',tier:3,req:['mechanization','logistics'],cost:420,samples:5,work:15,desc:'自動仕分けセンターが建設可能に。'},
+  {id:'watch',name:'見張り当番',branch:'stealth',tier:1,req:[],cost:60,samples:1,work:3,desc:'仕事「巣穴の見張り」を解放。見張り1人ごとに警戒の上昇を抑え、襲撃時の防衛力+3。'},
+  {id:'gatework',name:'防衛ゲート設計',branch:'stealth',tier:2,req:['watch'],cost:150,samples:2,work:7,desc:'防衛ゲートが建設可能に（襲撃時の防衛力+8、出口の隣で+4）。'},
+  {id:'cameras',name:'監視カメラ網',branch:'stealth',tier:2,req:['watch'],cost:140,samples:2,work:6,desc:'警備室の防衛力が2倍に。襲撃の前日に予兆を察知できる。'},
+  {id:'repel',name:'撃退訓練',branch:'stealth',tier:3,req:['gatework'],cost:240,samples:3,work:10,desc:'見張りの防衛力×1.5、撃退時の戦利品+50%。'},
+  {id:'decoy',name:'偽装入口',branch:'stealth',tier:3,req:['cameras'],cost:230,samples:3,work:10,desc:'警戒度が毎日さらに−2。襲撃者の戦力−20%。'},
   {id:'camouflage',name:'高度な偽装メイク',branch:'stealth',tier:2,req:['makeup'],cost:170,samples:2,work:8,desc:'偽装メイク工房が建設可能に。'},
   {id:'soundproof',name:'防音警備システム',branch:'stealth',tier:2,req:['sanitation'],cost:185,samples:2,work:8,desc:'防音・警備室が建設可能に。'},
   {id:'undercover',name:'社会潜伏訓練',branch:'stealth',tier:3,req:['camouflage','adaptation'],cost:280,samples:4,work:11,desc:'夜勤の露見リスクさらに−1。'},
   {id:'transport',name:'静音物流ルート',branch:'stealth',tier:3,req:['soundproof','logistics'],cost:285,samples:4,work:11,desc:'地上事業の売上+10%、警戒度が毎日さらに−1。'},
   {id:'humanization',name:'人間化技術',branch:'final',tier:4,req:['adaptation','foreman','wordofmouth'],cost:600,samples:6,work:18,desc:'3つの未来から進路を選べる。'}
 ]);
+// v3.5 balance: deeper tiers cost more money and time.
+for(const t of TECHS){const m=[1,1,1.5,1.8,2.2][t.tier]??1;t.cost=Math.round(t.cost*m/5)*5;t.work=Math.round(t.work*(t.tier>=2?1.25:1));}
 export const techById=id=>TECHS.find(t=>t.id===id);
 export function researchState(colony){
   const r=colony.research??{};
@@ -107,7 +114,7 @@ export function researchMods(completed=[]){
     foodPack:has('preserve')?8:5,
     supplyMul:has('logistics')?0.8:1,
     homeBonus:has('bunk')?2:0,
-    alertDecay:(has('adaptation')?1:0)+(has('transport')?1:0),
+    alertDecay:(has('adaptation')?1:0)+(has('transport')?1:0)+(has('decoy')?2:0),
     surfaceMul:(has('wordofmouth')?1.15:1)*(has('transport')?1.1:1),
     fleaRebate:has('appraisal')?0.04:0
   };

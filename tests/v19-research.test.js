@@ -5,7 +5,7 @@ import {initialColony,buySupply} from '../src/colony.js';
 import {initialGame,stepGame} from '../src/simulation.js';
 const rich=()=>({...initialColony(),inventory:{...initialColony().inventory,samples:50}});
 test('tree has 40 techs, unique ids, valid prerequisites, no cycles',()=>{
- assert.equal(TECHS.length,42);const ids=new Set(TECHS.map(t=>t.id));assert.equal(ids.size,42);
+ assert.equal(TECHS.length,47);const ids=new Set(TECHS.map(t=>t.id));assert.equal(ids.size,47);
  for(const t of TECHS)for(const q of t.req){assert.ok(ids.has(q));assert.ok(TECHS.find(x=>x.id===q).tier<=t.tier);}
 });
 test('locked techs cannot start; prerequisites unlock them',()=>{

@@ -74,6 +74,10 @@ export function residentVisual(game,resident,world=null){
     if(hobby==='wander'){const move=Math.sin((clock-43)/17*Math.PI)*.85;return {layer:'underground',x:home[0]+move,y:home[1]+move*.25,status:'地下で生活',activity:'walk',reason:'次の勤務まで地下をうろうろしています'};}
     return {layer:'underground',x:home[0]+(hobby==='chat'?.35:0),y:home[1],futon:hobby==='sleep'&&home[2]===false,upper:hobby==='sleep'&&!!home[3],status:'地下で生活',activity:hobby,bubble:hobby==='chat'&&(clock+index)%6<2?['それでね…','へぇ〜','ウゥ…（笑）'][index%3]:null,reason:{read:'住居で本を読んでいます',chat:'仲間とおしゃべり中',sleep:'昼寝をしています'}[hobby]};
   }
+  // v3.5 patrol: watch the exit tunnel through the night, pacing back and forth.
+  if(resident.activeJob==='patrol'){const ex=world?.buildings?.find(b=>b.kind==='exit');const base=ex?[ex.x+(index%2?ex.w+.2:-.6),ex.y+ex.h+.2]:HUB;const night=clock-60;
+    if(night>=0&&night<10)return {layer:'underground',...walk(world,home,base,night/9),status:'見張りへ移動',activity:'walk',reason:'出入口の見張りに向かっています'};
+    if(night>=10){const sw=Math.sin((clock+index*5)*.35)*.9;return {layer:'underground',x:base[0]+sw,y:base[1],status:'見張り中',activity:'walk',bubble:(clock+index*3)%14<2?'👀異常なし':null,reason:'人間の侵入に備えて出入口を見張っています'};}}
   if(resident.activeJob==='process'||resident.activeJob==='research'){
     const idx=game.residents.filter(r=>r.activeJob===resident.activeJob).findIndex(r=>r.id===resident.id);
     const spot=resident.activeJob==='research'?workSpot(game,resident,world,['lab'],idx):workSpot(game,resident,world,PROCESS_KINDS,idx);

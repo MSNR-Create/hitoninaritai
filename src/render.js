@@ -61,7 +61,7 @@ function tileCenter(tx,ty,rotation=0) { return projectedTile(tx,ty,rotation); }
 const BUILDING_COLORS_OLD={pantry:['#f4e4c4','#d0904a','#f0c080'],storage:['#d8cdb8','#7a8a6a','#b0c098'],wash:['#e6f4f8','#4aa0c8','#8fd0ea'],sorting:['#e2d2b4','#8a7a5a','#bfae8a'],extractor:['#e4e0f4','#5a8a9a','#9ad0d8'],home:['#e9c99a','#6fa8c8','#9fd0e4'],shop:['#f0d2a0','#e07a5a','#f6b07a'],exit:['#bfe6cf','#4fa88a','#8fd6b4'],humanHome:['#f1d6b2','#a07ad0','#cbb0ec'],market:['#f3dcb2','#e2605a','#f6a07a'],warehouse:['#d8d0c0','#5f8fb0','#8fbcd8'],clinic:['#f4f4ee','#5fb8a8','#a8e6d8'],cafe:['#ecc896','#c0784a','#e8a876'],lab:['#dcd8f0','#7a6ad0','#aea2ee']};
 const BADGE_OLD={pantry:'🍞',storage:'▦',wash:'♒',sorting:'▤',extractor:'⚛',home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'};
 const BADGE={...BADGE_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.icon]))};
-const BUILDING_COLORS={...BUILDING_COLORS_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.color]))};
+const BUILDING_COLORS={mall:['#f4ecf4','#d06a9a','#f0a8c8'],school:['#f0ecd8','#5a9a5a','#a8d8a0'],station:['#e8e8ec','#4a6a9a','#9ab8e0'],office:['#dce4ec','#3a4a6a','#8aa0c0'],hotel:['#f4e8d0','#a0702a','#e0c080'],gate:['#c8ccd0','#5a5a62','#a0a4aa'],...BUILDING_COLORS_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.color]))};
 export function rotatedRect(b,rotation=0){
   const pts=[[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].map(([x,y])=>rotateGridPoint(x,y,rotation));
   const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
@@ -202,13 +202,15 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       const {x:wx,y:wy}=tileCenter(x,y,view.rotation??0), k=`${x},${y}`;
       const closed=world.closed.has(k), path=world.paths.has(k), accent=world.accents.has(k);
       const tileKind=world.id==='surface'?streetTileKind(world,x,y):'underground';
-      let floor=world.id==='surface'?(tileKind==='road'?'#8e9298':tileKind==='sidewalk'?'#e2d3b0':accent?'#9bd27a':((x+y)%2?p.ground1:p.ground2)):closed?p.closed:path?p.path:accent?'#8c7660':((x+y)%2?p.ground1:p.ground2);
+      let floor=world.id==='surface'?(tileKind==='road'?'#8e9298':tileKind==='sidewalk'?'#e2d3b0':tileKind==='water'?'#4a8ac8':tileKind==='wild'?((x*7+y*3)%5?'#5f9450':'#6aa05a'):tileKind==='park'?'#8cc878':accent?'#9bd27a':((x+y)%2?p.ground1:p.ground2)):closed?p.closed:path?p.path:accent?'#8c7660':((x+y)%2?p.ground1:p.ground2);
       const lotHere=world.id==='surface'&&world.lotDefs?.some(l=>x>=l.x&&x<l.x+l.w&&y>=l.y&&y<l.y+l.h);
       if(lotHere)floor=(world.lotOpen?.(x,y)?'#c8a87a':'#9a8a70');
       const style=world.id==='surface'?(tileKind==='road'?'stripe':tileKind==='sidewalk'?'brick':'noise'):closed?'rubble':path?'slab':'noise';
       const texBase=floor.startsWith('#')?floor:'#3a4a50';
       if(!drawTile(ctx,wx,wy,texBase,style,Math.floor(tileHash(x,y)*4)))diamond(ctx,wx,wy,floor,null);
       ctx.globalAlpha=.35;diamond(ctx,wx,wy,null,world.id==='surface'&&tileKind==='road'?null:p.seam);ctx.globalAlpha=1;
+      if(world.showRange?.has(k)&&!closed){ctx.globalAlpha=.16;diamond(ctx,wx,wy,'#8af0a0',null);ctx.globalAlpha=1;}
+      if(tileKind==='water'){const sh=(Math.sin(elapsedSeconds*1.5+x*.9+y*1.3)+1)/2;ctx.fillStyle=`rgba(220,240,255,${.15+sh*.25})`;ctx.fillRect(Math.round(wx-10+sh*6),Math.round(wy-2),8,1);ctx.fillRect(Math.round(wx+2-sh*4),Math.round(wy+4),6,1);}
       if(world.id==='surface'&&tileKind==='road'){
         const vertical=[8,9,15,16].includes(x) && ![8,9,15,16].includes(y), horizontal=[8,9,15,16].includes(y) && ![8,9,15,16].includes(x);
         if((vertical&&[9,16].includes(x))||(horizontal&&[9,16].includes(y))){const half=vertical?[-.5,0]:[0,-.5];const along=vertical?[0,.22]:[.22,0];
@@ -223,7 +225,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   const rot=view.rotation??0, list=[], overlays=[];
   const depthOf=(x,y)=>{const t=rotateTile(x,y,rot);return t.x+t.y;};
   setArtTime(elapsedSeconds);
-  for(const b0 of [...world.buildings,...(world.cityBuildings??[])]){const b=b0.kind==='home'?{...b0,cap:homeCapacity(world,b0)}:b0;const {parts,overlay}=buildingParts(b,world.connectivity?.[b.id]??true,rot);list.push(...parts);overlays.push(overlay);}
+  for(const b0 of [...world.buildings,...(world.cityBuildings??[])]){const b=b0.kind==='home'?{...b0,cap:homeCapacity(world,b0)}:b0;const {parts,overlay}=buildingParts(b,(world.connectivity?.[b.id]??true)&&!world.unpowered?.has(b.id),rot);list.push(...parts);overlays.push(overlay);}
   if(world.id==='surface'){
     const humanCount=world.humanCount??34,trust=world.humanTrust??55;
     for(const v of vehiclesAt(elapsedSeconds,humanCount,trust)){const pt=projectedTile(v.x,v.y,rot);
@@ -260,6 +262,8 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){const k=x+','+y;if(occupied.has(k))continue;const h=tileHash(x*3+1,y*5+2);let name=null;
     if(world.id==='surface'){const kind=streetTileKind(world,x,y);
       if(kind==='lot')name=h<.16?'tree':h<.24?'flowers':h<.3?'bush':h<.32?'bench':null;
+      else if(kind==='wild')name=h<.42?'tree':h<.6?'bush':h<.7?'flowers':null;
+      else if(kind==='park')name=h<.2?'tree':h<.36?'flowers':h<.42?'bench':h<.46?'lamp':null;
       else if(kind==='sidewalk'&&(x*7+y*3)%9===0)name='lamp';}
     else if(!world.paths.has(k)){name=world.closed.has(k)?(h<.08?'crystal':null):h<.05?'mushroom':h<.08?'lantern':h<.1?'crystal':null;}
     if(!name)continue;const pt0=projectedTile(x,y,rot),pt={x:pt0.x,y:pt0.y-(world.id==='underground'?10:0)},dx=(h*7%1-.5)*12;

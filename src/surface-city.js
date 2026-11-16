@@ -2,6 +2,7 @@
 // Rendering is deterministic and separated from the colony's buildable underground.
 import { MAP_SIZE } from './geometry.js';
 const key=(x,y)=>`${x},${y}`;
+export const CORE=24; // v3.5: the original town; the ring beyond is wilderness until districts develop it
 export const ROAD_COLUMNS=Object.freeze([8,9,15,16]);
 export const ROAD_ROWS=Object.freeze([8,9,15,16]);
 export function createCityInfrastructure(buildings=[]){
@@ -9,7 +10,7 @@ export function createCityInfrastructure(buildings=[]){
  for(const b of buildings)for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)blocked.add(key(x,y));
  const roads=new Set(),sidewalks=new Set();
  for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){
-  if(!blocked.has(key(x,y))&&(ROAD_COLUMNS.includes(x)||ROAD_ROWS.includes(y)))roads.add(key(x,y));
+  if(x<CORE&&y<CORE&&!blocked.has(key(x,y))&&(ROAD_COLUMNS.includes(x)||ROAD_ROWS.includes(y)))roads.add(key(x,y));
  }
  for(const r of roads){const [x,y]=r.split(',').map(Number);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
    const a=x+dx,b=y+dy;if(a>=0&&a<MAP_SIZE&&b>=0&&b<MAP_SIZE&&!roads.has(key(a,b))&&!blocked.has(key(a,b)))sidewalks.add(key(a,b));
@@ -17,7 +18,7 @@ export function createCityInfrastructure(buildings=[]){
  return {roads,sidewalks};
 }
 export function streetTileKind(world,x,y){
- const p=key(x,y);if(world.paths?.has(p))return 'road';if(world.sidewalks?.has(p))return 'sidewalk';return 'lot';
+ const p=key(x,y);if(world.paths?.has(p))return 'road';if(world.sidewalks?.has(p))return 'sidewalk';if(world.water?.has(p))return 'water';if(world.park?.has(p))return 'park';if((x>=CORE||y>=CORE)&&!world.devUsed?.has(p))return 'wild';return 'lot';
 }
 // Animated vehicles occupy designated carriageways. They never cross building footprints.
 export function vehiclesAt(seconds,humans=34,trust=55){

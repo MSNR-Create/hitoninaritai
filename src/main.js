@@ -6,6 +6,7 @@ import { initialGame, stepGame, assignJob, JOBS, moodOf, jobEligible, jobReqText
 import { residentVisual, visibleResidents } from './agent.js';
 import { applyConstruction, canUnlock, zoneCost, zoneAt, connectedFacilities, FACILITY_SIZES, FACILITY_NAMES, BUILD_COSTS } from './construction.js';
 import { MAP_SIZE } from './geometry.js';
+import { OUTER_ZONES } from './world.js';
 import * as C from './colonists.js';
 import * as CITY from './city.js';
 import { lotAt } from './city.js';
@@ -13,6 +14,7 @@ import { FACILITIES, runProduction, ITEM_NAMES, SALVAGE_PACK } from './productio
 import * as ST from './storage.js';
 import { homeCapacity, homeAssignments } from './agent.js';
 import { clearSpriteCache } from './sprites.js';
+import { dailyInfrastructure, upkeepOf, POWER_USE, synergyTotals, synergiesFor, previewSynergies, inShopRange, shopDistance, SHOP_RANGE, shopRangeTiles } from './infrastructure.js';
 import { unlockAudio, setMusic, sfx, setAudio, audioPrefs, EVENT_SFX } from './audio.js';
 import { FACILITY_DEFS, ITEMS, BUILD_CATEGORIES, TOOLS, RECIPES as CAT_RECIPES, recipesFor } from './catalog.js';
 import { dailyFacilityEffects } from './facility-effects.js';
@@ -37,6 +39,15 @@ const canvas=document.getElementById('scene');const ctx=canvas.getContext('2d',{
 canvas.addEventListener('contextlost',e=>{e.preventDefault();});
 canvas.addEventListener('contextrestored',()=>{clearSpriteCache();frameSize();});
 const viewport=document.getElementById('viewport');const worlds=makeWorlds();
+// v3.5: the surface grows with the city — developed districts add roads, buildings and a park; the rest of the outer ring stays wild.
+const SURFACE_BASE={paths:new Set(worlds.surface.paths),city:[...worlds.surface.cityBuildings]};
+const POND=new Set(['27,19','28,19','29,19','27,20','28,20','29,20','30,20','28,21','29,21','26,2','27,2','26,3']);
+function applyCityLayer(){const city=CITY.ensureCity(surfaceEconomy).city,L=CITY.cityLayer(city),S=worlds.surface;
+ S.cityBuildings=[...SURFACE_BASE.city,...L.buildings];S.paths=new Set([...SURFACE_BASE.paths,...L.roads]);S.park=L.park;S.devUsed=new Set([...L.used,...L.park]);
+ S.water=new Set([...POND].filter(k=>!L.used.has(k)));
+ const blocked=new Set();for(const b of [...S.buildings,...S.cityBuildings])for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)blocked.add(x+','+y);
+ const side=new Set();for(const r of S.paths){const [x,y]=r.split(',').map(Number);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const k=(x+dx)+','+(y+dy);if(x+dx<0||y+dy<0||x+dx>=MAP_SIZE||y+dy>=MAP_SIZE)continue;if(!S.paths.has(k)&&!blocked.has(k)&&!S.water.has(k))side.add(k);}}
+ S.sidewalks=side;for(const k of side)S.devUsed.add(k);}
 worlds.underground.connectivity=connectedFacilities(worlds.underground);
 const state={ layer:'underground', selected:{ underground:{x:8,y:8}, surface:{x:7,y:8} }, view:{cx:0,cy:0,panX:0,panY:0,zoom:1,rotation:0}, pointers:new Map(),gesture:null,started:performance.now() };
 let bounds={width:0,height:0},dpr=1,raf=0;
@@ -72,7 +83,7 @@ function frameSize() {
 }
 function centerMap() {
   // The center of all tiles, not the top-left, aligns to the available viewport.
-  const p=projectedTile(8,8,state.view.rotation??0);
+  const p=projectedTile(11,11,state.view.rotation??0);
   state.view={ cx:bounds.width/2,cy:bounds.height*.46, panX:-p.x,panY:-p.y, zoom:Math.min(1.05,Math.max(.48,bounds.width/700)),rotation:state.view.rotation??0 };
   state.view=boundCamera(state.view,bounds.width,bounds.height);updateZoom();
 }
@@ -124,11 +135,16 @@ function setTool(next){if(next!==tool)buildRotated=false;tool=next;pathStart=nul
 for(const btn of document.querySelectorAll('[data-tool]'))btn.addEventListener('click',()=>{if(state.layer!=='underground'&&btn.dataset.tool!=='inspect')switchLayer('underground');setTool(btn.dataset.tool)});
 function rectangle(x,y,w,h){const cells=[];for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)cells.push({x:xx,y:yy});return cells;}
 function updatePlacement(){window.__buildChoice=buildChoice;
- placement=null;if(state.layer!=='underground'||tool==='inspect')return;
+ placement=null;worlds.underground.showRange=null;if(state.layer!=='underground'||tool==='inspect')return;
  const p=buildChoice??hoverTile??state.selected.underground;
  if(BUILDABLE.includes(tool)){
   const v=buildingPreview(worlds.underground,tool,p.x,p.y,game.money,buildRotated);
   placement={kind:tool,x:p.x,y:p.y,w:v.w,h:v.h,tiles:rectangle(p.x,p.y,v.w,v.h),valid:v.ok};
+  // v3.5: preview upkeep / power / synergies / ration range for the candidate spot
+  if(buildChoice){const r={x:p.x,y:p.y,w:v.w,h:v.h};const sy=previewSynergies(worlds.underground,tool,r);const pw=POWER_USE[tool]??0;const up=upkeepOf({kind:tool});
+   const range=tool==='home'?(shopDistance(worlds.underground,r)<=SHOP_RANGE?'🍱配給所の範囲内':'⚠配給所の範囲外'):'';
+   placement.info=`維持費${up}G/日${pw?`・電力${pw}`:''}${range?'・'+range:''}${sy.length?'・相性 '+sy.map(s=>(s.good?'👍':'👎')+s.text).join(' '):''}`;}
+  worlds.underground.showRange=(tool==='home'||tool==='shop')?shopRangeTiles(worlds.underground,MAP_SIZE):null;
  }else if(tool==='path'&&corridorChoice?.start){
   const to=corridorChoice.end??hoverTile??corridorChoice.start;
   const route=planCorridor(worlds.underground,corridorChoice.start,to,game.money);
@@ -173,7 +189,7 @@ function buildAt(tile){
   const dimensions=sizeOf(tool);
   const next=chooseFootprint(buildChoice,tool,tile,dimensions);buildChoice=next.candidate;
   const v=buildingPreview(world,tool,buildChoice.x,buildChoice.y,game.money,buildRotated);
-  if(!next.commit){status(`${FACILITY_NAMES[tool]} ${v.w}×${v.h}・${BUILD_COSTS[tool]}G：${v.ok?'設置可能':'設置不可・'+v.reason}。範囲内をもう一度タップで建設／長押しで移動。`);updatePlacement();return;}
+  if(!next.commit){status(`${FACILITY_NAMES[tool]} ${v.w}×${v.h}・${BUILD_COSTS[tool]}G：${v.ok?'設置可能':'設置不可・'+v.reason}。範囲内をもう一度タップで建設／長押しで移動。`);updatePlacement();if(placement?.info)status(el('buildMessage').textContent+' 【'+placement.info+'】');return;}
   if(!v.ok){status('配置不可：'+v.reason);updatePlacement();return;}
   const result=applyConstruction(world,{type:'build',kind:tool,x:buildChoice.x,y:buildChoice.y,rotated:buildRotated},game.money);
   if(!result.ok){status(result.reason);return;}
@@ -424,14 +440,14 @@ function refreshResidentRows(){
   }
   const visual=residentVisual(game,r),name=line.firstElementChild,select=line.querySelector('select');
   // v3.3: a job the resident can't hold (e.g. starting residents) becomes 「夜の稼ぎはおまかせ」 instead of showing a locked choice.
-  if(document.activeElement!==select&&!jobEligible(C.ensureColonist(r),r.job)){game=assignJob(game,r.id,'auto');r=game.residents.find(x=>x.id===r.id);}
+  if(document.activeElement!==select&&(!jobEligible(C.ensureColonist(r),r.job)||(JOBS[r.job]?.tech&&!colony.completedResearch.includes(JOBS[r.job].tech)))){game=assignJob(game,r.id,'auto');r=game.residents.find(x=>x.id===r.id);}
   const cr=C.ensureColonist(r),st=C.decayStage(cr.decay);
   // v3.4: compact status — name line + four icon bars (higher = worse), rebuilt only when values change.
   {const vals=[['😮‍💨','疲労',r.fatigue],['🔥','衝動',r.impulse??0],['🧟','腐敗',Math.round(cr.decay)],['💨','臭気',C.odorOf(cr)]];const sig=`${r.name}|${cr.level}|${vals.map(v=>v[2]).join(',')}|${r.strikeDays}|${visual.status}`;
    if(name.dataset.sig!==sig){name.dataset.sig=sig;name.className='rstat';name.innerHTML=`<b>${r.name}</b> <small>Lv${cr.level}・${r.strikeDays>0?'✊ストライキ・':''}${visual.status}</small><span class="rbars">${vals.map(([ic,lb,v])=>`<i title="${lb} ${v}"><em>${ic}</em><u><s style="width:${Math.min(100,v)}%;background:${v>=70?'#e0604a':v>=40?'#e0b040':'#6ac07a'}"></s></u></i>`).join('')}</span>`;}}
   {const g=line.querySelector('.grow-btn'),txt=cr.sp>0?`育成 ⬆${cr.sp}`:'育成';if(g.textContent!==txt)g.textContent=txt;}
   // v3.3: never touch an open/focused picker, and only write when something actually changed (mobile pickers flicker otherwise).
-  if(document.activeElement!==select)for(const o of select.options){const ok=jobEligible(cr,o.value),txt=ok?o.dataset.base:`🔒 ${o.dataset.base}（要${jobReqText(o.value)}）`;if(o.disabled!==!ok)o.disabled=!ok;if(o.textContent!==txt)o.textContent=txt;}
+  if(document.activeElement!==select)for(const o of select.options){const tech=JOBS[o.value]?.tech,techOk=!tech||colony.completedResearch.includes(tech),ok=techOk&&jobEligible(cr,o.value),txt=ok?o.dataset.base:`🔒 ${o.dataset.base}（要${techOk?jobReqText(o.value):'研究「'+techById(tech).name+'」'}）`;if(o.disabled!==!ok)o.disabled=!ok;if(o.textContent!==txt)o.textContent=txt;}
   if(name.title!==visual.reason)name.title=visual.reason;
   // Keep the select DOM mounted and don't touch its value during native selection.
   if(document.activeElement!==select && select.value!==r.job)select.value=r.job;
@@ -482,7 +498,7 @@ function renderStockAndRecipes(){
 }
 // v2.5: per-building production plans (recipe + staff). Rows are rebuilt only when the building set changes,
 // so an open <select> is never destroyed by the per-tick refresh.
-function prodBuildings(){return worlds.underground.buildings.filter(b=>recipesFor(b.kind).length&&worlds.underground.connectivity?.[b.id]);}
+function prodBuildings(){return worlds.underground.buildings.filter(b=>recipesFor(b.kind).length&&worlds.underground.connectivity?.[b.id]&&!worlds.underground.unpowered?.has(b.id));}
 function staffCap(b){const a=(b.w??2)*(b.h??2);return (a>=6?3:a>=4?2:1)+((b.level??1)-1);}
 function planOf(b){const p=(colony.facilityPlans??{})[b.id];return {recipe:p?.recipe??(colony.recipePrefs??{})[b.kind]??'auto',staff:Math.max(0,Math.min(staffCap(b),p?.staff??1))};}
 function setPlan(b,patch){colony={...colony,facilityPlans:{...(colony.facilityPlans??{}),[b.id]:{...planOf(b),...patch}}};saveNow();renderFacilityPlans(true);}
@@ -510,7 +526,7 @@ function renderFacilityPlans(force=false){
   row.querySelector('.plan-staff b').textContent=`${pl.staff}/${staffCap(b)}`;
   const want=game.residents.filter(r=>r.job==='process'||r.job==='autoin').length;
   row.querySelector('.plan-who').textContent=post?.workers.length?`配属：${post.workers.map(r=>r.name).join('・')}`:pl.staff?'配属：今夜の勤務開始時に「素材加工」「🕯️巣穴のお手伝い」の住民から自動で配属':'停止中（人数0）';}
- const sum=internalSlots();el('planSummary').textContent=`内部ポスト：加工${sum.process}人・研究${sum.research}人／内部作業の住民 ${game.residents.filter(r=>['process','research','autoin'].includes(r.job)).length}人`;
+ const sum=internalSlots();{const inf=dailyInfrastructure(worlds.underground,colony.inventory);el('planSummary').title='';el('planSummary').dataset.infra=`⚡電力 ${inf.demand}/${inf.supply}（基本${3}＋発電所・燃料1/日）・維持費 ${inf.upkeep}G/日`;}el('planSummary').textContent=el('planSummary').dataset.infra+'　'+`内部ポスト：加工${sum.process}人・研究${sum.research}人／内部作業の住民 ${game.residents.filter(r=>['process','research','autoin'].includes(r.job)).length}人`;
 }
 function procurementNeeds(){
  const inv=colony.inventory,n=game.residents.length,target={food:n*3,care:Math.max(2,Math.ceil(n/2)+connectedKind('wash')*2),luxury:2};
@@ -561,7 +577,8 @@ function snapshot(){return serializeSession({game,colony,social,world:worlds.und
 function saveStatus(message){el('saveStatus').textContent=message;}
 async function saveNow(){if(savePending||resetting)return;savePending=true;try{await saveSnapshot(snapshot());saveStatus(`保存済み：第${game.day}日`);}catch(e){saveStatus(`保存できません：${e.message}`);}finally{savePending=false;}}
 function restoreData(data){const d=validateSession(data);game=d.game;ensureAllColonists();colony=d.colony;social=d.social;worlds.underground=hydrateWorld(d.world);migrateInitialLayout(worlds.underground);
- if(!worlds.underground.zones.some(z=>z.id==='eastward')){const fresh=makeWorlds().underground;for(const z of fresh.zones.filter(z=>['eastward','deepward'].includes(z.id))){worlds.underground.zones.push(z);for(let x=z.x;x<z.x+z.w;x++)for(let y=z.y;y<z.y+z.h;y++)worlds.underground.closed.add(`${x},${y}`);}}resale=d.resale;marketDesk=F.migrateFlea(d.marketDesk);rented=d.rented;owned=d.owned??[];surfaceEconomy=d.surfaceEconomy??initialSurfaceEconomy();endingUnlocked=!!d.endingUnlocked;if(endingUnlocked&&!colony.completedResearch.includes('humanization'))colony={...colony,completedResearch:[...colony.completedResearch,'humanization']};ledger=d.ledger?validateLedger(d.ledger):createLedger(game.money,game.day);economyDay=game.day;lastRentDue=0;simAccumulator=0;lastTime=null;eventQueue=[];activeEvent=null;el('eventDialog').close?.();refreshConnectivity();updateEconomy();updateResalePanel();layerButton();updateEndingPanel();}
+ if(!worlds.underground.zones.some(z=>z.id==='eastward')){const fresh=makeWorlds().underground;for(const z of fresh.zones.filter(z=>['eastward','deepward'].includes(z.id))){worlds.underground.zones.push(z);for(let x=z.x;x<z.x+z.w;x++)for(let y=z.y;y<z.y+z.h;y++)worlds.underground.closed.add(`${x},${y}`);}}{const U=worlds.underground;if(!U.zones.some(z=>z.id==='far_east')){// v3.5: old 24×24 saves gain the rock ring and the outer zones
+  for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++)if(x>=24||y>=24)U.closed.add(`${x},${y}`);for(const z of OUTER_ZONES)U.zones.push({...z,open:false});}}resale=d.resale;marketDesk=F.migrateFlea(d.marketDesk);rented=d.rented;owned=d.owned??[];surfaceEconomy=d.surfaceEconomy??initialSurfaceEconomy();applyCityLayer();endingUnlocked=!!d.endingUnlocked;if(endingUnlocked&&!colony.completedResearch.includes('humanization'))colony={...colony,completedResearch:[...colony.completedResearch,'humanization']};ledger=d.ledger?validateLedger(d.ledger):createLedger(game.money,game.day);economyDay=game.day;lastRentDue=0;simAccumulator=0;lastTime=null;eventQueue=[];activeEvent=null;el('eventDialog').close?.();refreshConnectivity();updateEconomy();updateResalePanel();layerButton();updateEndingPanel();}
 el('saveButton').addEventListener('click',saveNow);
 el('exportButton').addEventListener('click',()=>{try{const data=snapshot();const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`zombie-colony-day${game.day}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);saveStatus('JSONバックアップを出力しました');}catch(e){saveStatus(e.message);}});
 el('importButton').addEventListener('click',()=>el('importFile').click());
@@ -617,19 +634,45 @@ const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().home
            colony={...colony,inventory:t.inventory};game={...game,money:game.money-price};moneyChange(-price,'生活物資仕入れ',`買い出し：${it.name}`,completedDay);got.push(`${it.icon}${t.accepted}`);n--;packs--;}
           if(n>0)list[key]=n;else delete list[key];}
          colony={...colony,shoppingList:list};if(got.length)shoppingNote=`🛒買い出し：${got.join(' ')}`;else shoppingNote='';}
+        // v3.5 infrastructure: every facility has upkeep, powered ones need the grid (generators burn fuel), newest lose power first.
+        {const inf=dailyInfrastructure(worlds.underground,colony.inventory);worlds.underground.unpowered=inf.unpowered;
+         game={...game,money:game.money-inf.upkeep};if(inf.upkeep)moneyChange(-inf.upkeep,'施設維持費',`地下施設${inf.lines.length}棟の維持費`,completedDay);
+         colony={...colony,inventory:{...colony.inventory,fuel:(colony.inventory.fuel??0)-inf.fuelUsed,batteries:(colony.inventory.batteries??0)-inf.battUsed},infra:{upkeep:inf.upkeep,supply:inf.supply,demand:inf.demand,off:[...inf.unpowered]}};
+         if(inf.unpowered.size)refusedNote.push(`電力不足で${inf.unpowered.size}棟が停止（発電所・燃料を増やす）`);}
         if(game.lastReport.salvage){const t=ST.intake(colony.inventory,'salvage',game.lastReport.salvage,caps);colony={...colony,inventory:t.inventory};if(t.refused)refusedNote.push(`回収物${t.refused}個（資材置き場が満杯）`);}
         {const facs=Object.fromEntries(Object.keys(FACILITY_DEFS).map(k=>[k,connectedKind(k)]));const ex=r=>C.hasTrait(r,'dexterous')&&((r.id*7+completedDay*3)%10)<3;const sf=staffing(game.residents);const workers=[...sf.posts.flatMap(p=>p.workers.map(r=>({name:r.name,extra:ex(r),facility:p.b.kind,recipe:p.plan.recipe,building:p.b.id}))),...sf.left.map(r=>({name:r.name,extra:ex(r)}))];
-         if(workers.length||facs.automation){const pr=runProduction(colony.inventory,game.money,workers,facs,{prefs:colony.recipePrefs??{},caps:ST.capacities(worlds.underground),goodsTotal:ST.goodsTotal,mods:currentMods()});colony={...colony,inventory:{...colony.inventory,...pr.inventory}};game={...game,money:pr.money};if(pr.fees)moneyChange(-pr.fees,'研究','素材加工の処理費',completedDay);productionLog=pr.log;}else productionLog=[];}
+         if(workers.length||facs.automation){const pr=runProduction(colony.inventory,game.money,workers,facs,{grid:true,prefs:colony.recipePrefs??{},caps:ST.capacities(worlds.underground),goodsTotal:ST.goodsTotal,mods:currentMods()});colony={...colony,inventory:{...colony.inventory,...pr.inventory}};game={...game,money:pr.money};if(pr.fees)moneyChange(-pr.fees,'研究','素材加工の処理費',completedDay);productionLog=pr.log;}else productionLog=[];}
         {const cd=C.dailyColonists(game.residents,{washSlots:connectedKind('wash')*2,care:colony.inventory.care??0,decayRelief:(currentMods().impulseRelief?0.3:0)+currentMods().decayRelief});
          game={...game,residents:cd.residents,alert:Math.min(100,game.alert+cd.alertAdd)};colony={...colony,inventory:{...colony.inventory,care:(colony.inventory.care??0)-cd.careUsed}};lastColonistReport=cd;{const users={},w=worlds.underground;const need=game.residents.filter(r=>(r.decay??0)>=15).sort((a,b)=>(b.decay??0)-(a.decay??0));for(const [k,per] of [['wash',2],['repair',2],['cooler',4]])for(const b of w.buildings.filter(b=>b.kind===k&&w.connectivity?.[b.id]))for(let i=0;i<per*(b.level??1);i++){const r=need.shift();if(r)users[r.name]=b.id;}w.facilityUsers=users;}
          {const counts=Object.fromEntries(['lounge','theater','cooler','repair','security'].map(k=>[k,connectedKind(k)]));const fx=dailyFacilityEffects(game.residents,colony.inventory,counts,{outsideWorkers:game.residents.filter(r=>C.OUTSIDE.has(r.activeJob)).length,stage:colony.stage});
           game={...game,residents:fx.residents,alert:Math.max(0,Math.min(100,game.alert+fx.alertDelta))};colony={...colony,inventory:fx.inventory};facilityNotes=fx.notes;}
          if(cd.levelUps.length)queueScenes(cd.levelUps.map((u,i)=>({id:`lv-${completedDay}-${i}`,kind:'levelup',day:completedDay,message:`${u.name}がLv${u.level}に上がった！ スキルポイント+1`,reason:'夜勤・研究・加工の経験を積んだ'})));}
+        // v3.5 synergies & ration range
+        {const sy=synergyTotals(worlds.underground);const notes=[];
+         if(sy.food){const t=ST.intake(colony.inventory,'food',Math.max(0,sy.food),ST.capacities(worlds.underground));colony={...colony,inventory:sy.food>0?t.inventory:{...colony.inventory,food:Math.max(0,(colony.inventory.food??0)+sy.food)}};notes.push(`食料${sy.food>0?'+':''}${sy.food}`);}
+         if(sy.goods){colony={...colony,inventory:{...colony.inventory,parts:(colony.inventory.parts??0)+sy.goods}};}
+         if(sy.alert)game={...game,alert:Math.max(0,Math.min(100,game.alert+sy.alert))};
+         const a=homeAssignments(game,worlds.underground);const far=new Set(worlds.underground.buildings.filter(b=>b.kind==='home'&&!inShopRange(worlds.underground,b)).map(b=>b.id));
+         game={...game,residents:game.residents.map(r=>{let imp=(r.impulse??0)+sy.impulse;let dec=(r.decay??0)+sy.decay;if(far.has(a[r.id]?.id))imp+=4;return {...r,impulse:Math.max(0,Math.min(100,imp)),decay:Math.max(0,dec)};})};
+         if(far.size)refusedNote.push(`配給所が遠い住居が${far.size}棟（衝動+4/日）`);}
+        // v3.5 zombie hunters: a few days of high alert can bring a raid at dawn; defence comes from guards, security rooms and gates.
+        {const hi=game.alert>=65?(colony.highAlertDays??0)+1:0;colony={...colony,highAlertDays:hi};const has=id=>colony.completedResearch.includes(id);
+         const patrols=game.residents.filter(r=>r.activeJob==='patrol').length;const sy=synergyTotals(worlds.underground);
+         const defense=Math.round(patrols*3*(has('repel')?1.5:1)+connectedKind('security')*(has('cameras')?6:3)+connectedKind('gate')*8+sy.defense+game.residents.length*.5);
+         const attack=Math.round((12+game.alert/4+completedDay/8)*(has('decoy')?.8:1));colony={...colony,defense,threat:attack};
+         const roll=((completedDay*2654435761)>>>0)%100;
+         if(hi===1&&has('cameras'))showNotice('📹 監視カメラが不審な人影を捉えた',`ゾンビバスターらしき人間が街を嗅ぎ回っています。警戒度が高いままだと数日内に襲撃されるかもしれません（防衛力${defense}／予想戦力${attack}）。見張りを増やすか警戒度を下げましょう。`);
+         if(hi>=2&&roll<40&&game.residents.length){colony={...colony,highAlertDays:0};
+          if(defense>=attack){const loot=Math.round(attack*4*(has('repel')?1.5:1));game={...game,money:game.money+loot,alert:Math.max(0,game.alert-20)};moneyChange(loot,'強奪','ゾンビバスター撃退の戦利品',completedDay);sfx('levelup');
+           showNotice('🛡️ ゾンビバスターを撃退！',`夜明け前、武装した人間たちが地下へ踏み込んできたが、見張り${patrols}人と防衛設備で追い返した（防衛力${defense}／敵${attack}）。落とし物 ${loot}G を回収。警戒度−20。`);}
+          else{const loss=Math.max(50,Math.round(Math.max(0,game.money)*.15));let caught=null;if(defense<attack*.6&&game.residents.length>1){const v=game.residents[(roll+completedDay)%game.residents.length];caught=v.name;game={...game,residents:game.residents.filter(r=>r.id!==v.id)};social=recordDeaths(social,completedDay,[v.name]);}
+           game={...game,money:game.money-loss,alert:Math.max(0,game.alert-10)};moneyChange(-loss,'施設維持費','ゾンビバスターの襲撃被害',completedDay);
+           showNotice('💥 ゾンビバスターの襲撃',`武装した人間たちが地下に踏み込んだ（防衛力${defense}／敵${attack}）。施設が荒らされ ${loss}G の損害${caught?`、${caught}が連れ去られた…`:'。'}研究「潜伏・防衛」で見張り・監視カメラ・防衛ゲートを整えよう。`);}}}
         const labActive=worlds.underground.buildings.some(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]);
         const housing=worlds.underground.buildings.filter(b=>b.kind==='home'&&worlds.underground.connectivity?.[b.id]).length;
         const capacity=colonyCapacity();
         const prevHistoryIds=new Set(social.history.map(e=>e.id)), hadResearch=colony.completedResearch.includes('impulse');
-        const researchers=Math.round(game.residents.filter(r=>r.activeJob==='research').reduce((n,r)=>n+C.researchPower(r),0)*100)/100,labCount=connectedLabs();const ar=advanceResearch(colony,researchers>0?researchers+connectedKind('archives'):0,labCount);colony=ar.colony;if(ar.completed){const t=techById(ar.completed);if(ar.completed==='humanization')endingUnlocked=true;queueScenes([{id:'tech-'+ar.completed+'-'+completedDay,kind:'research',day:completedDay,message:`${t.name}が完成！ ${t.desc}`,reason:`研究担当${researchers}体・研究室${labCount}棟で研究を続けた成果`}]);}
+        const researchers=Math.round(game.residents.filter(r=>r.activeJob==='research').reduce((n,r)=>n+C.researchPower(r),0)*100)/100,labCount=connectedLabs();const ar=advanceResearch(colony,researchers>0?Math.max(.5,researchers+connectedKind('archives')+synergyTotals(worlds.underground).research):0,labCount);colony=ar.colony;if(ar.completed){const t=techById(ar.completed);if(ar.completed==='humanization')endingUnlocked=true;queueScenes([{id:'tech-'+ar.completed+'-'+completedDay,kind:'research',day:completedDay,message:`${t.name}が完成！ ${t.desc}`,reason:`研究担当${researchers}体・研究室${labCount}棟で研究を続けた成果`}]);}
         const daily=advanceColony(game,colony,labActive,capacity,currentMods());game=daily.game;colony=daily.colony;
         social=recordDeaths(social,game.day,daily.colony.report.deathNames);
         const relation=advanceSocial(social,game,colony,capacity);social=relation.social;game=relation.game;
@@ -664,11 +707,12 @@ let lastDraw=0;
 function render(t){
   const elapsed=lastTime===null?0:Math.min(.25,(t-lastTime)/1000);lastTime=t;
   if(!paused&&!activeEvent){simAccumulator+=elapsed*speed;let updated=false;
-    while(simAccumulator>=1){
+    // v3.5: a failing tick must never kill the render loop (that froze / blacked out the map).
+    try{while(simAccumulator>=1){
       advanceOneTick();simAccumulator-=1;updated=true;
       if(activeEvent)break;
     }
-    if(updated)updateEconomy();
+    if(updated)updateEconomy();}catch(err){simAccumulator=0;console.error(err);try{status('⚠ 進行中にエラー：'+(err?.message??err));}catch{}}
   }
   // v3.2 battery saver: cap redraws (30fps; 12fps while a panel covers the map or the game is paused; 20fps on phones).
   const covered=currentPanel!==null,coarse=matchMedia('(pointer:coarse)').matches;const fps=covered||paused?12:coarse?20:30;
@@ -683,7 +727,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){cancelAnimationFrame(raf);raf=0;lastTime=null;simAccumulator=0;}
   else if(!raf){lastTime=null;raf=requestAnimationFrame(render);}
 });
-layerButton();updateResalePanel();updateRentalPanel();updateColonyPanel();updateEndingPanel();loadSnapshot().then(data=>{if(data){restoreData(data);saveStatus('前回の続きから再開しました');}else saveStatus('新しいゲームです。自動保存は毎朝行います。');}).catch(err=>saveStatus('保存領域を使用できません：'+err.message));
+applyCityLayer();layerButton();updateResalePanel();updateRentalPanel();updateColonyPanel();updateEndingPanel();loadSnapshot().then(data=>{if(data){restoreData(data);saveStatus('前回の続きから再開しました');}else saveStatus('新しいゲームです。自動保存は毎朝行います。');}).catch(err=>saveStatus('保存領域を使用できません：'+err.message));
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 raf=requestAnimationFrame(render);
 
@@ -842,7 +886,9 @@ function updateCityPanel(){
  if(nx){const h=document.createElement('div');h.className='cg-title';h.textContent=`次の街区「${nx.name}」の条件`;goal.append(h);
   row('人口',pop,nx.need.pop,Math.max(nx.need.pop,cap),pop>=nx.need.pop,'#f2d37a','人');row('繁栄',pros,nx.need.prosperity,100,pros>=nx.need.prosperity,'#74c8b6');row('信頼',trustNow,nx.need.trust,100,trustNow>=nx.need.trust,'#9ab4f0');
   const r=document.createElement('div');r.className='cg-row'+(game.alert<nx.need.alertBelow?' ok':'');r.innerHTML=`<b>${game.alert<nx.need.alertBelow?'✅':'⬜'} 警戒</b><div class="cg-bar"><i style="width:${game.alert}%;background:#f08a7a"></i><em style="left:${nx.need.alertBelow}%"></em></div><span>${game.alert} / ${nx.need.alertBelow}未満</span>`;goal.append(r);
-  el('cityNext').textContent=`開発されると：${nx.desc}（住宅枠+${nx.housing}）`;}else el('cityNext').textContent='全街区を開発済み！';
+  el('cityNext').textContent=`開発されると：${nx.desc}（住宅枠+${nx.housing}・出資 ${nx.invest}G）`;
+  {const b=document.createElement('button');b.className='invest-btn';const ready=city.ready===nx.id;b.textContent=ready?`🏗️ 「${nx.name}」の開発に出資する（${nx.invest}G）`:`🔒 条件を満たすと出資できます（${nx.invest}G）`;b.disabled=!ready||game.money<nx.invest;
+   b.addEventListener('click',()=>{const r=CITY.investDistrict(city,game.money);if(!r.ok)return;surfaceEconomy={...surfaceEconomy,city:r.city};game={...game,money:r.money};moneyChange(-r.cost,'建設',`${r.district.name}の開発出資`);applyCityLayer();sfx('levelup');showNotice('🏗️ 街が広がった！',`「${r.district.name}」の開発が始まりました。${r.district.desc} 地上マップで新しい街並みを見てみましょう。`);updateEconomy();saveNow();});goal.append(b);}}else el('cityNext').textContent='全街区を開発済み！';
  // advice: why it stalls
  const tips=[];const d7=hs.length>7?pop-hs[hs.length-8].humans:null;
  if(game.alert>=55)tips.push(`🚨 警戒度${game.alert}が高く、信頼が毎日下がっています（警戒45未満で信頼が上がり始めます）。外勤を減らす・洗浄・偽装クリーム・警備室で下げましょう。`);
@@ -864,8 +910,8 @@ function updateCityPanel(){
   g.fillStyle='#9fb6bb';g.fillText(`第${hs[0].day}日`,26,ch-3);g.fillText(`第${hs.at(-1).day}日`,cw-46,ch-3);g.fillText(`人口目盛り:最大${mx}人`,cw-110,10);}
  else{g.fillStyle='#9fb6bb';g.font='11px system-ui';g.fillText('翌朝からグラフが記録されます',36,ch/2);}
 }
-function connectedKind(kind){return worlds.underground.buildings.filter(b=>b.kind===kind&&worlds.underground.connectivity?.[b.id]).reduce((n,b)=>n+(b.level??1),0);}
-function connectedLabs(){return worlds.underground.buildings.filter(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]).length;}
+function connectedKind(kind){return worlds.underground.buildings.filter(b=>b.kind===kind&&worlds.underground.connectivity?.[b.id]&&!worlds.underground.unpowered?.has(b.id)).reduce((n,b)=>n+(b.level??1),0);}
+function connectedLabs(){return worlds.underground.buildings.filter(b=>b.kind==='lab'&&worlds.underground.connectivity?.[b.id]&&!worlds.underground.unpowered?.has(b.id)).length;}
 function currentMods(){return researchMods(colony.completedResearch);}
 function updateResearchPanel(note=''){
  const tree=el('researchTree');if(!tree)return;
@@ -950,6 +996,12 @@ function levelEffectText(b){const lv=b.level??1,k=b.kind;
 function openBuilding(id){const w=worlds.underground,b=w.buildings.find(x=>x.id===id);if(!b)return;const f=FACILITY_DEFS[b.kind]??{icon:'🏠',name:b.name,desc:b.description};const lv=b.level??1,mx=maxLevelFor();
  const d=el('propertyDialog');el('propertyTitle').textContent=`${f.icon} ${b.name}　Lv${lv}`;
  const lines=[f.desc??b.description??'',`大きさ ${b.w}×${b.h}／${w.connectivity?.[b.id]?'✓ 通路に接続':'⚠ 通路未接続（利用停止中）'}`,levelEffectText(b)?`現在の効果：${levelEffectText(b)}`:''];
+ {const labIdx=w.buildings.filter(x=>x.kind==='lab'&&w.connectivity?.[x.id]).findIndex(x=>x.id===b.id);const up=upkeepOf(b,Math.max(0,labIdx));const pw=(POWER_USE[b.kind]??0)*(b.level??1);
+  lines.push(`維持費 ${up}G/日${pw?`／電力 ${pw}${w.unpowered?.has(b.id)?'（⚠ 電力不足で停止中）':''}`:''}`);
+  const sy=synergiesFor(w,b);if(sy.length)lines.push('相性：'+sy.map(s=>`${s.good?'👍':'👎'}${FACILITY_DEFS[s.a===b.kind?s.b:s.a]?.short??''}「${s.label}」${s.text}`).join(' ／ '));
+  if(b.kind==='home'){const d=shopDistance(w,b);lines.push(d<=SHOP_RANGE?`🍱 配給所まで ${d}マス（範囲内）`:`⚠ 配給所が遠い（${d===Infinity?'なし':d+'マス'}・範囲${SHOP_RANGE}マス）：住民の衝動+4/日`);}
+  if(b.kind==='shop')lines.push(`🍱 配給範囲：${SHOP_RANGE}マス以内の住居`);
+  if(['security','gate','exit'].includes(b.kind))lines.push(`🛡️ 防衛力 ${colony.defense??'—'}／ゾンビバスターの想定戦力 ${colony.threat??'—'}（警戒65以上が2日続くと襲撃の危険）`);}
  if(b.kind==='home'){const a=homeAssignments(game,w);const who=game.residents.filter(r=>a[r.id]?.id===b.id).map(r=>r.name);lines.push(`住んでいる住民：${who.join('・')||'なし'}`);}
  if(recipesFor(b.kind).length){const pl=planOf(b);const post=staffing(game.residents).posts.find(p=>p.b.id===b.id);lines.push(`生産：${pl.recipe==='auto'?'おまかせ':CAT_RECIPES[pl.recipe].name}／人数 ${pl.staff}/${staffCap(b)}`,`配属：${post?.workers.map(r=>r.name).join('・')||'なし'}`);}
  const users=Object.entries(w.facilityUsers??{}).filter(([,v])=>v===b.id).map(([n])=>n);if(users.length)lines.push(`今日の利用者：${users.join('・')}`);

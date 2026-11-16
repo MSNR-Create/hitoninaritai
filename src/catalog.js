@@ -43,6 +43,7 @@ export const FACILITY_DEFS=Object.freeze({
  workshop:{name:'機械組立室',short:'組立室',icon:'🔧',cat:'industry',size:[3,2],cost:330,tech:'mechanization',desc:'電子基板・バッテリー・精密工具（電力）',color:['#d8dce4','#5a6a8a','#9aa8c8']},
  automation:{name:'自動仕分けセンター',short:'自動仕分け',icon:'🤖',cat:'industry',size:[3,3],cost:460,tech:'sorting_ai',desc:'担当なしで毎夜2回 選別・解体（電力）',color:['#d4e4ec','#3a7a9a','#80b8d0']},
  disguise:{name:'偽装メイク工房',short:'偽装工房',icon:'💄',cat:'stealth',size:[2,2],cost:185,tech:'camouflage',desc:'偽装クリームを製造。外勤者が使うと警戒↓',color:['#f8e0ec','#d06a9a','#f0a8c8']},
+ gate:{name:'防衛ゲート',short:'ゲート',icon:'🛡️',cat:'stealth',size:[2,2],cost:160,tech:'gatework',desc:'襲撃時の防衛力+8（出口の隣で+4）。電力1',color:['#c8ccd0','#5a5a62','#a0a4aa']},
  security:{name:'防音・警備室',short:'警備室',icon:'🔇',cat:'stealth',size:[2,2],cost:225,tech:'soundproof',desc:'毎日 警戒−1（2棟まで）',color:['#d8dce0','#4a5a6a','#8a9aaa']}
 });
 export const ITEMS=Object.freeze({

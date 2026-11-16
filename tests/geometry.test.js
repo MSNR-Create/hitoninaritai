@@ -22,11 +22,11 @@ test('zoom keeps the world point beneath pointer fixed',()=>{
  assert.equal(zoomAround(view,100,0,0).zoom,2.5);
  assert.equal(zoomAround(view,.01,0,0).zoom,.45);
 });
-test('surface and underground worlds are separate and have 24x24 bounds',()=>{
+test('surface and underground worlds are separate and have map bounds',()=>{
  const worlds=makeWorlds();assert.equal(worlds.underground.buildings.length,3);assert.equal(worlds.surface.buildings.length,7);
  assert.equal(buildingAt(worlds.underground,4,5).name,'共同住居');
  assert.equal(buildingAt(worlds.surface,4,5).name,'人間の住宅');
  assert.equal(describeTile(worlds.underground,0,0).type,'閉鎖');
  assert.equal(describeTile(worlds.underground,8,8).type,'通路');
- assert.equal(describeTile(worlds.underground,24,0),null);
+ assert.equal(describeTile(worlds.underground,32,0),null);
 });

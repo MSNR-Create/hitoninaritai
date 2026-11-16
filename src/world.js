@@ -7,8 +7,14 @@ function fillRectangle(set, x0, y0, x1, y1) {
 }
 function tileSet(points) { return new Set(points.map(([x,y]) => coords(x,y))); }
 
+export const OUTER_ZONES=Object.freeze([
+  {id:'far_east',name:'東の岩盤',x:24,y:0,w:8,h:12,cost:300},{id:'far_east2',name:'東の地底湖',x:24,y:12,w:8,h:10,cost:340},
+  {id:'far_south',name:'南の岩盤',x:0,y:24,w:12,h:8,cost:300},{id:'far_south2',name:'南の旧坑道',x:12,y:24,w:12,h:8,cost:340},
+  {id:'abyss',name:'最深部',x:24,y:22,w:8,h:10,cost:420}]);
 export function makeWorlds() {
   const closed = new Set();
+  // v3.5: the map is 32×32 — everything beyond the original 24×24 is solid rock to dig outward into.
+  fillRectangle(closed,24,0,MAP_SIZE-1,MAP_SIZE-1);fillRectangle(closed,0,24,23,MAP_SIZE-1);
   fillRectangle(closed,16,0,23,6);
   fillRectangle(closed,17,16,23,23);
   fillRectangle(closed, 0, 0, 4, 4);
@@ -27,7 +33,8 @@ export function makeWorlds() {
     {id:'northeast',name:'北東区画',x:11,y:1,w:5,h:5,cost:110,open:false},
     {id:'southeast',name:'南東区画',x:10,y:11,w:6,h:5,cost:140,open:false},
     {id:'eastward',name:'東部拡張区画',x:16,y:0,w:8,h:7,cost:220,open:false},
-    {id:'deepward',name:'深層開発区画',x:17,y:16,w:7,h:8,cost:280,open:false}
+    {id:'deepward',name:'深層開発区画',x:17,y:16,w:7,h:8,cost:280,open:false},
+    ...OUTER_ZONES.map(z=>({...z,open:false}))
   ];
   const underground = {
     id: 'underground', name: '地下タウン', subtitle: '閉鎖区画と住民の生活拠点',

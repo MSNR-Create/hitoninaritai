@@ -18,12 +18,12 @@ export function runProduction(inventory,money,workers,facilities,opts={}){
  // power: each generator gives 3 powered batches if it can burn 1 fuel (or 1 battery)
  let power=0,fuelBurned=false;const gens=facilities.generator??0;
  const hasFuel=()=>gens>0&&!fuelBurned&&((inv.fuel??0)>0||(inv.batteries??0)>0);
- const powerUp=()=>{if(power>0)return true;if(!hasFuel())return false;
+ const powerUp=()=>{if(opts.grid)return true;if(power>0)return true;if(!hasFuel())return false;
   if((inv.fuel??0)>=1)inv.fuel--;else inv.batteries--;
   fuelBurned=true;power=3*gens;log.push({worker:'⚡発電所',ok:true,name:'発電',out:{},fee:0});return true;};
  const goodsDelta=r=>Object.entries(r.out).filter(([k])=>k!=='food').reduce((s,[,v])=>s+v,0)-Object.entries(r.in).filter(([k])=>k!=='food').reduce((s,[,v])=>s+v,0);
  const fits=r=>{if(!opts.caps)return true;const food=r.out.food??0;if(food&&(inv.food??0)+food>opts.caps.food)return false;const d=goodsDelta(r);return d<=0||opts.goodsTotal(inv)+d<=opts.caps.goods;};
- const powered=r=>!r.power||power>0||hasFuel();
+ const powered=r=>!r.power||!!opts.grid||power>0||hasFuel();
  const runnable=id=>{const r=CAT_RECIPES[id];return (slots[r.facility]??0)>0&&can(inv,r.in)&&cash>=r.fee&&fits(r)&&powered(r);};
  const order=Object.keys(CAT_RECIPES).filter(id=>{const p=prefs[CAT_RECIPES[id].facility];return !p||p==='auto'||p===id;});
  let curB=null;const exec=(id,who)=>{const r=CAT_RECIPES[id];if(r.power&&!powerUp())return false;if(r.power)power--;

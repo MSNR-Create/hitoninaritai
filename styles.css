@@ -317,3 +317,4 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 .help-dialog h3{margin:10px 0 4px;font-size:13px;color:#f0dfa7}.help-dialog ol,.help-dialog ul{margin:0;padding-left:18px;font-size:12px;line-height:1.6}.help-dialog li{margin:3px 0}#closeHelp{margin-top:10px;width:100%;padding:10px;border-radius:9px}
 @media(min-width:641px){.resident-row{grid-template-columns:minmax(240px,1fr) auto auto auto!important}}
 .rbars u{min-width:26px}
+.invest-btn{margin-top:6px;width:100%;padding:9px;border-radius:9px;border:1px solid #c9a46a;background:#6a4a2a;color:#f8e9b0;font-weight:700}.invest-btn:disabled{opacity:.55}
