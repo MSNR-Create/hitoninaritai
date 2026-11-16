@@ -61,7 +61,7 @@ const el=id=>document.getElementById(id);
 
 function frameSize() {
   const r=viewport.getBoundingClientRect(); const prevWidth=bounds.width,prevHeight=bounds.height;
-  bounds={width:r.width,height:r.height};dpr=Math.min(window.devicePixelRatio||1,2);
+  bounds={width:r.width,height:r.height};dpr=Math.min(window.devicePixelRatio||1,matchMedia('(pointer:coarse)').matches?1.5:2);
   canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);
   canvas.style.width=`${r.width}px`;canvas.style.height=`${r.height}px`;
   if(!prevWidth){centerMap();} else {state.view.cx+=(r.width-prevWidth)/2;state.view.cy+=(r.height-prevHeight)/2;state.view=boundCamera(state.view,bounds.width,bounds.height);}
@@ -495,7 +495,7 @@ function renderFacilityPlans(force=false){
  for(const row of host.querySelectorAll('.plan-row')){const b=bs.find(x=>String(x.id)===row.dataset.bid);if(!b)continue;const pl=planOf(b);const post=sf.posts.find(p=>p.b.id===b.id);
   row.querySelector('.plan-staff b').textContent=`${pl.staff}/${staffCap(b)}`;
   const want=game.residents.filter(r=>r.job==='process'||r.job==='autoin').length;
-  row.querySelector('.plan-who').textContent=post?.workers.length?`配属：${post.workers.map(r=>r.name).join('・')}`:pl.staff?'配属：今夜の勤務開始時に「素材加工」「お任せ（内部作業）」の住民から自動で配属':'停止中（人数0）';}
+  row.querySelector('.plan-who').textContent=post?.workers.length?`配属：${post.workers.map(r=>r.name).join('・')}`:pl.staff?'配属：今夜の勤務開始時に「素材加工」「🕯️巣穴のお手伝い」の住民から自動で配属':'停止中（人数0）';}
  const sum=internalSlots();el('planSummary').textContent=`内部ポスト：加工${sum.process}人・研究${sum.research}人／内部作業の住民 ${game.residents.filter(r=>['process','research','autoin'].includes(r.job)).length}人`;
 }
 function procurementNeeds(){
@@ -519,7 +519,7 @@ function openProcure(auto=false){const d=el('procureDialog');if(d.open)return;co
  if(hidden){const more=document.createElement('button');more.type='button';more.className='mini-btn';more.textContent=`＋ その他の物資（${hidden}）`;more.addEventListener('click',()=>{for(const x of rows.querySelectorAll('.extra'))x.hidden=false;more.remove();});rows.append(more);}
  procureTotal();paused=true;syncClockButtons?.();d.showModal();}
 function procureTotal(){let g=0,p=0;for(const i of el('procureRows').querySelectorAll('input')){const n=Math.max(0,Math.min(9,parseInt(i.value)||0));g+=n*+i.dataset.price;p+=n;}
- el('procureTotal').textContent=`合計 ${p}パック・${g}G（所持 ${game.money}G）／必要な担当 ${Math.ceil(p/3)}人：🛒買い出し担当か「お任せ（バイト）」の住民が行きます`+(g>game.money?' ⚠資金不足分は買えません':'');}
+ el('procureTotal').textContent=`合計 ${p}パック・${g}G（所持 ${game.money}G）／必要な担当 ${Math.ceil(p/3)}人：🛒買い出し担当か「🌙夜の稼ぎはおまかせ」の住民が行きます`+(g>game.money?' ⚠資金不足分は買えません':'');}
 el('openProcure').addEventListener('click',()=>openProcure(false));
 el('procureCancel').addEventListener('click',()=>{el('procureDialog').close();paused=false;syncClockButtons?.();});
 el('procureGo').addEventListener('click',()=>{const list={};for(const i of el('procureRows').querySelectorAll('input')){const n=Math.max(0,Math.min(9,parseInt(i.value)||0));if(n)list[i.dataset.k]=n;}
@@ -646,6 +646,7 @@ const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().home
         updateResalePanel();updateColonyPanel();saveNow();}
 }
 
+let lastDraw=0;
 function render(t){
   const elapsed=lastTime===null?0:Math.min(.25,(t-lastTime)/1000);lastTime=t;
   if(!paused&&!activeEvent){simAccumulator+=elapsed*speed;let updated=false;
@@ -655,6 +656,9 @@ function render(t){
     }
     if(updated)updateEconomy();
   }
+  // v3.2 battery saver: cap redraws (30fps; 12fps while a panel covers the map or the game is paused; 20fps on phones).
+  const covered=currentPanel!==null,coarse=matchMedia('(pointer:coarse)').matches;const fps=covered||paused?12:coarse?20:30;
+  if(t-lastDraw<1000/fps-2){raf=requestAnimationFrame(render);return;}lastDraw=t;
   if(bounds.width&&bounds.height){positionRotateButton();ctx.setTransform(dpr,0,0,dpr,0,0);{const cty=CITY.ensureCity(surfaceEconomy).city;worlds.surface.lotDefs=CITY.LOTS;worlds.surface.lotState=cty.lots;worlds.surface.lotOpen=(x,y)=>{const l=lotAt(x,y);return !!l&&CITY.lotOpen(cty,l);};}try{drawScene(ctx,worlds[state.layer],state.view,state.selected[state.layer],(t-state.started)/1000,bounds,game,placement);}catch(err){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1;ctx.fillStyle='rgba(120,30,30,.85)';ctx.fillRect(8,bounds.height-58,bounds.width-16,50);ctx.fillStyle='#fff';ctx.font='12px system-ui';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('描画エラー：'+String(err?.message??err).slice(0,60),16,bounds.height-52);ctx.fillText('この画面のスクショを送ってください',16,bounds.height-34);if(!window.__drawErr){window.__drawErr=err;console.error(err);}}}
   raf=requestAnimationFrame(render);
 }
@@ -872,10 +876,10 @@ function updateResearchPanel(note=''){
    const stTxt={done:'✅ 完了済み',active:'⏳ 研究中',locked:'🔒 前提研究が未完了',available:'🟢 研究できます'}[s2];
    const rows=[['状態',stTxt],['効果',t.desc]];
    for(const f of fac)rows.push(['解放施設',`${f.icon} ${f.name}${f.desc?`：${f.desc}`:''}${f.cost!=null?`（建設 ${f.cost}G）`:''}`]);
-   rows.push(['費用',`${t.cost}G・研究資材${t.samples}個（所持 ${colony.inventory?.samples??0}）`],['必要研究量',`${t.work}pt（担当1体・研究室${connectedLabs()}棟なら約${nights}夜）`]);
+   rows.push(['費用',`${t.cost}G・研究資材${t.samples}個（所持 ${colony.inventory?.samples??0}）`],['研究量',`${t.work}pt（担当1体・研究室${connectedLabs()}棟なら約${nights}夜）`]);
    rows.push(['前提',t.req.length?t.req.map(q=>`${colony.completedResearch.includes(q)?'✓':'✗'} ${techById(q).name}`).join('・'):'なし']);
    if(next.length)rows.push(['次に解放',next.map(n=>n.name).join('・')]);
-   const d=el('researchDetailDesc');d.replaceChildren();for(const [k,v] of rows){const r=document.createElement('span');r.className='rd-row';const b=document.createElement('b');b.textContent=k;const i=document.createElement('i');i.textContent=v;r.append(b,i);d.append(r);}}
+   const d=el('researchDetailDesc');d.replaceChildren();for(const [k,v] of rows){const r=document.createElement('span');r.className='rd-row'+(['効果','解放施設'].includes(k)?' wide':'');const b=document.createElement('b');b.textContent=k;const i=document.createElement('i');i.textContent=v;r.append(b,i);d.append(r);}}
   const b=el('researchStart');b.disabled=s2!=='available'||!!active;b.textContent=s2==='done'?'完了済み':s2==='active'?'研究中':s2==='locked'?'前提研究が必要':active?'他の研究が進行中':`研究開始 · ${t.cost}G＋資材${t.samples}`;}
 }
 function updateTree(){updateResearchPanel();}

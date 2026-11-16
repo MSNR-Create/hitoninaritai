@@ -2,7 +2,7 @@
 // Level 1–10 / XP / skill points / 5 stats / one strength + one weakness trait /
 // decay (腐敗) and odor (臭気) with washing. Pure functions; deterministic.
 export const STATS=Object.freeze({str:'腕力',dex:'器用',int:'知性',soc:'社交',res:'耐腐敗'});
-export const LEVEL_XP=Object.freeze([0,40,95,170,270,400,560,750,970,1220]);
+export const LEVEL_XP=Object.freeze([0,60,150,280,450,670,940,1260,1640,2100]);
 export const DAILY_XP_CAP=24;
 export const TRAITS=Object.freeze({
  nocturnal:{name:'夜行性',good:true,desc:'夜勤の疲労−15%'},
@@ -57,7 +57,7 @@ export function dailyColonists(residents,{washSlots=0,care=0,decayRelief=0}={}){
  let careLeft=care,alertAdd=0;const levelUps=[],washed=[];
  let next=residents.map(r0=>{const r={...ensureColonist(r0)};const job=r.activeJob??'rest';
   // XP
-  const gain=job==='rest'?0:12;r.xp+=Math.min(gain,DAILY_XP_CAP);const lv=levelOf(r.xp);if(lv>r.level){r.sp+=lv-r.level;levelUps.push({name:r.name,level:lv});r.level=lv;}
+  const gain=job==='rest'?0:9;r.xp+=Math.min(gain,DAILY_XP_CAP);const lv=levelOf(r.xp);if(lv>r.level){r.sp+=lv-r.level;levelUps.push({name:r.name,level:lv});r.level=lv;}
   // decay
   const resist=Math.min(.4,.04*(r.stats.res-2));const traitMul=(hasTrait(r,'resilient')?.8:1)*(hasTrait(r,'fragile')?1.15:1);
   const load=job==='warehouse'?1.5:OUTSIDE.has(job)?.5:0;

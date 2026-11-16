@@ -2,7 +2,7 @@
 // shared character sprites, timed choreography, particles. Comic, never graphic.
 import { zombieSprite, humanSprite, policeSprite, blit } from './sprites.js';
 const SCENES={friendship:{title:'心が通じた！',desc:'街角で会話を交わし、少しだけ距離が縮まった。',accent:'#a4d6b1'},warning:{title:'正体を疑われた！',desc:'妙な仕草を見られた。相手が不審そうにしている。',accent:'#e7bd76'},police:{title:'警察が出動！',desc:'通報を受けた警官が駆けつけ、取り押さえようとしている。',accent:'#ee9886'},conversion:{title:'新しい眷属！',desc:'人間の隣人が新たな仲間として地下に加わった。',accent:'#b5c8ff'},loss:{title:'帰らぬ仲間',desc:'衝突の末、住民を失った。地下に悲しみが広がる。',accent:'#b9b4c6'},incident:{title:'対人トラブル！',desc:'衝動を抑えられず、人間社会で騒ぎになってしまった。',accent:'#f6a780'},levelup:{title:'レベルアップ！',desc:'住民が成長した。',accent:'#f2d37a'},district:{title:'新街区オープン！',desc:'街が発展した。',accent:'#9ad8ff'},wifi_caught:{title:'ただ乗りバレた！',desc:'回線泥棒が発覚した。',accent:'#f08070'},flea_claim:{title:'クレーム発生！',desc:'購入者からクレームが届いた。',accent:'#f08070'},flea_good:{title:'高評価ゲット！',desc:'購入者から嬉しい評価が届いた。',accent:'#f2d37a'},flea_jackpot:{title:'大当たり！',desc:'高値で売れた！',accent:'#f6c94a'},flea_buzz:{title:'相場が急騰！',desc:'SNSでバズって相場が跳ね上がった。',accent:'#ff9a5a'},flea_crash:{title:'相場が暴落…',desc:'再販決定で相場が崩れた。',accent:'#8aa0c8'},flea_fake:{title:'偽物だった…',desc:'届いた商品は偽物だった。',accent:'#c070d0'},flea_mismatch:{title:'説明と違う！',desc:'届いた商品の状態が説明より悪かった。',accent:'#d8a060'},research:{title:'研究成功！',desc:'長年の課題をひとつ克服した。人間化への道が開ける。',accent:'#a4ebda'},ending:{title:'新たな未来',desc:'ゾンビたちの未来を選ぶときが来た。',accent:'#e6dba3'}};
-export const sceneDefinition=kind=>SCENES[kind]??SCENES.incident;
+export const sceneDefinition=kind=>SCENES[kind==='waiting'?'friendship':kind]??SCENES.incident;
 export function eventsForDay(previousCount,social,colony,game){
  const entries=social.history.slice(previousCount).map(e=>({id:e.id,kind:e.kind,message:e.message,reason:e.reason,day:e.day}));
  const report=colony.report;
@@ -166,7 +166,7 @@ const PLAY={
 };
 /** frame: ms timestamp. Draws a looping ~6 s choreography for the event kind. */
 export function paintEvent(ctx,kind,frame,w=320,h=170){
-  const s=sceneDefinition(kind),T=((frame/1000)%LOOP+LOOP)%LOOP;
+  if(kind==='waiting')kind='friendship';const s=sceneDefinition(kind),T=((frame/1000)%LOOP+LOOP)%LOOP;
   ctx.save();ctx.clearRect(0,0,w,h);ctx.imageSmoothingEnabled=false;ctx.scale(w/160,h/85);
   (PLAY[kind]??PLAY.incident)(ctx,T);
   // letterbox + accent + fade-in at loop start
