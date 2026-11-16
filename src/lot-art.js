@@ -1,17 +1,17 @@
 // v3.0 hand-placed pixel art for surface lot facilities (2×2 tiles, centered on the lot).
 // Iso helpers: u runs down-right, v runs down-left; 32 units = one tile edge; z is height in px.
-const P=(cx,cy,u,v,z=0)=>[Math.round(cx+(u-v)),Math.round(cy+(u+v)/2-z)];
-function poly(ctx,pts,fill,stroke){ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();}}
+export const P=(cx,cy,u,v,z=0)=>[Math.round(cx+(u-v)),Math.round(cy+(u+v)/2-z)];
+export function poly(ctx,pts,fill,stroke){ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();}}
 function pad(ctx,cx,cy,fill,edge,inset=4){poly(ctx,[P(cx,cy,-32+inset,-32+inset),P(cx,cy,32-inset,-32+inset),P(cx,cy,32-inset,32-inset),P(cx,cy,-32+inset,32-inset)],fill,edge);}
 /** Box with visible top, +u (right) face and +v (left) face. Optional face painters receive (s,t)->point mappers. */
-function box(ctx,cx,cy,u0,u1,v0,v1,h,c,{right,left,top}={}){
+export function box(ctx,cx,cy,u0,u1,v0,v1,h,c,{right,left,top}={}){
  poly(ctx,[P(cx,cy,u1,v0),P(cx,cy,u1,v1),P(cx,cy,u1,v1,h),P(cx,cy,u1,v0,h)],c[2],c[3]);
  poly(ctx,[P(cx,cy,u0,v1),P(cx,cy,u1,v1),P(cx,cy,u1,v1,h),P(cx,cy,u0,v1,h)],c[1],c[3]);
  poly(ctx,[P(cx,cy,u0,v0,h),P(cx,cy,u1,v0,h),P(cx,cy,u1,v1,h),P(cx,cy,u0,v1,h)],c[0],c[3]);
  const R=(s,t)=>P(cx,cy,u1,v0+(v1-v0)*s,h*t),L=(s,t)=>P(cx,cy,u0+(u1-u0)*s,v1,h*t),T=(s,t)=>P(cx,cy,u0+(u1-u0)*s,v0+(v1-v0)*t,h);
  right?.(R);left?.(L);top?.(T);}
-const quad=(ctx,M,s0,s1,t0,t1,fill,stroke)=>poly(ctx,[M(s0,t0),M(s1,t0),M(s1,t1),M(s0,t1)],fill,stroke);
-function shadow(ctx,cx,cy,u0,u1,v0,v1){poly(ctx,[P(cx,cy,u0+3,v0+3),P(cx,cy,u1+6,v0+3),P(cx,cy,u1+6,v1+6),P(cx,cy,u0+3,v1+6)],'rgba(0,0,0,.22)');}
+export const quad=(ctx,M,s0,s1,t0,t1,fill,stroke)=>poly(ctx,[M(s0,t0),M(s1,t0),M(s1,t1),M(s0,t1)],fill,stroke);
+export function shadow(ctx,cx,cy,u0,u1,v0,v1){poly(ctx,[P(cx,cy,u0+3,v0+3),P(cx,cy,u1+6,v0+3),P(cx,cy,u1+6,v1+6),P(cx,cy,u0+3,v1+6)],'rgba(0,0,0,.22)');}
 function pole(ctx,x,y,h,col='#6a6f78'){ctx.fillStyle='#2e3238';ctx.fillRect(x-1,y-h,3,h);ctx.fillStyle=col;ctx.fillRect(x,y-h,1,h);}
 function waves(ctx,x,y,t){for(let i=0;i<2;i++){const p=(t*.8+i/2)%1;ctx.strokeStyle=`rgba(120,200,255,${1-p})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,4+p*13,-2.5,-.6);ctx.stroke();}}
 

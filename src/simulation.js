@@ -13,6 +13,7 @@ export const JOBS=Object.freeze({
   salvage:{name:'夜間回収',icon:'🗑️',pay:0,food:0,fatigue:10,exposure:1,salvage:2},
   shopping:{name:'買い出し',icon:'🛒',pay:0,food:0,fatigue:8,exposure:1,shopping:1},
   research:{name:'地下研究',icon:'🧪',pay:0,food:0,fatigue:8,exposure:0},
+  patrol:{name:'巣穴の見張り',icon:'🛡️',pay:0,food:0,fatigue:6,exposure:-1.4,tech:'watch'},
   process:{name:'素材加工',icon:'🏭',pay:0,food:0,fatigue:8,exposure:0},
   rest:{name:'休息',icon:'🛌',pay:0,food:0,fatigue:-30,exposure:0},
   auto:{name:'夜の稼ぎはおまかせ',icon:'🌙',pay:0,food:0,fatigue:0,exposure:0},
@@ -81,7 +82,7 @@ export function stepGame(old){
     // v2.5 balance: exposure counts half; alert also cools by 10% of its level each day.
     // v3.0: alert drifts toward a baseline set by tonight's exposure, plus daily rumor noise — it lives in the middle range
     // and spikes with incidents instead of pinning at 0 or 100.
-    {const base=6+exposure*2.2;const noise=(((s.day*2654435761)>>>0)%9)-3;
+    {const base=Math.max(0,6+exposure*2.2);const noise=(((s.day*2654435761)>>>0)%9)-3;
      s.alert=clamp100(Math.round(s.alert+(base-s.alert)*.22+noise-((s.mods??{}).alertDecay??0)));}
     s.lastReport={day:s.day,income,harvest,salvage,shoppers,eaten,exposure,food:s.food,money:s.money};
     s.events.push(`第${s.day}日 朝：収入+${income}G、調達+${harvest}、調達品は共同倉庫へ`);

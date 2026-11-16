@@ -18,10 +18,11 @@ export const TECHS=Object.freeze([
   {id:'sleep',name:'安眠カプセル',branch:'life',tier:2,req:['impulse'],cost:90,samples:2,work:6,desc:'昼の休養回復 +8。'},
   {id:'preserve',name:'防腐保存食',branch:'life',tier:2,req:['impulse'],cost:100,samples:2,work:6,desc:'食料の仕入れ量 1回5→8個。'},
   {id:'hobby',name:'地下サークル活動',branch:'life',tier:3,req:['sleep'],cost:140,samples:3,work:8,desc:'嗜好品が足りない日の衝動悪化を半減。'},
+  {id:'netsales',name:'ネット副業（フリマ）',branch:'work',tier:1,req:[],cost:30,samples:0,work:2,desc:'地上のフリマで転売する副業を解放（手間の少ない出品設定つき）。'},
   {id:'shiftplan',name:'夜勤の段取り術',branch:'work',tier:1,req:[],cost:40,samples:1,work:3,desc:'夜勤報酬 +20%。'},
   {id:'stretch',name:'防腐ストレッチ',branch:'work',tier:2,req:['shiftplan'],cost:90,samples:2,work:6,desc:'勤務による疲労 −25%。'},
   {id:'makeup',name:'人間メイク術',branch:'work',tier:2,req:['shiftplan'],cost:120,samples:2,work:7,desc:'勤務1回の露見リスク −1。'},
-  {id:'autoprocure',name:'調達ルート確立',branch:'work',tier:2,req:['shiftplan'],cost:110,samples:1,work:5,desc:'不足物資を毎夕自動で買い出しリストに入れる（施設で作れる物は除く）。'},
+  {id:'autoprocure',name:'調達ルート確立',branch:'work',tier:2,req:['shiftplan'],cost:110,samples:1,work:5,desc:'不足する食料・資材を毎夕自動で買い出しリストに入れる（施設で作れる物は除く）。'},
   {id:'foreman',name:'現場リーダー制',branch:'work',tier:3,req:['stretch','makeup'],cost:220,samples:3,work:10,desc:'夜勤報酬 さらに +25%。'},
   {id:'research_base',name:'研究基盤Ⅰ',branch:'build',tier:1,req:[],cost:75,samples:2,work:4,desc:'研究試料抽出装置が建設可能に（試料の自給）。'},
   {id:'bunk',name:'二段ベッド設計',branch:'build',tier:1,req:[],cost:80,samples:1,work:4,desc:'共同住居1棟あたり定員 +2。'},
@@ -40,7 +41,7 @@ export const TECHS=Object.freeze([
   {id:'refrigeration',name:'低温保存技術',branch:'care',tier:2,req:['sanitation'],cost:145,samples:2,work:7,desc:'低温保存室が建設可能に。'},
   {id:'chemistry',name:'生活用薬品合成',branch:'care',tier:2,req:['sanitation','research_base'],cost:230,samples:3,work:10,desc:'薬品合成室が建設可能に。'},
   {id:'regeneration',name:'身体再生医療',branch:'care',tier:3,req:['chemistry','refrigeration'],cost:360,samples:4,work:13,desc:'身体修復室が建設可能に。'},
-  {id:'bioculture',name:'試料培養技術',branch:'care',tier:3,req:['chemistry','research_base'],cost:320,samples:4,work:13,desc:'培養研究槽が建設可能に（研究資材を増産）。'},
+  {id:'bioculture',name:'試料培養技術',branch:'care',tier:3,req:['chemistry','research_base'],cost:320,samples:4,work:13,desc:'培養研究槽が建設可能に（研究サンプルを増産）。'},
   {id:'entertainment',name:'地下の映像文化',branch:'care',tier:3,req:['leisure','hobby'],cost:220,samples:3,work:10,desc:'地下シアターが建設可能に。'},
   {id:'health_protocol',name:'衛生プロトコル',branch:'care',tier:3,req:['refrigeration','regeneration'],cost:270,samples:4,work:12,desc:'腐敗の進行を毎日−0.6。'},
   {id:'community',name:'地下自治会',branch:'care',tier:4,req:['entertainment','archives_research'],cost:370,samples:5,work:14,desc:'嗜好品不足による衝動増加をさらに半減。'},
@@ -49,12 +50,19 @@ export const TECHS=Object.freeze([
   {id:'archives_research',name:'地下知識アーカイブ',branch:'auto',tier:2,req:['research_base'],cost:175,samples:2,work:8,desc:'地下図書館が建設可能に。'},
   {id:'mechanization',name:'機械組立工学',branch:'auto',tier:2,req:['electricity','recycling'],cost:210,samples:3,work:10,desc:'機械組立室が建設可能に（電子部品）。'},
   {id:'sorting_ai',name:'自動仕分けAI',branch:'auto',tier:3,req:['mechanization','logistics'],cost:420,samples:5,work:15,desc:'自動仕分けセンターが建設可能に。'},
+  {id:'watch',name:'見張り当番',branch:'stealth',tier:1,req:[],cost:60,samples:1,work:3,desc:'仕事「巣穴の見張り」を解放。見張り1人ごとに警戒の上昇を抑え、襲撃時の防衛力+3。'},
+  {id:'gatework',name:'防衛ゲート設計',branch:'stealth',tier:2,req:['watch'],cost:150,samples:2,work:7,desc:'防衛ゲートが建設可能に（襲撃時の防衛力+8、出口の隣で+4）。'},
+  {id:'cameras',name:'監視カメラ網',branch:'stealth',tier:2,req:['watch'],cost:140,samples:2,work:6,desc:'警備室の防衛力が2倍に。襲撃の前日に予兆を察知できる。'},
+  {id:'repel',name:'撃退訓練',branch:'stealth',tier:3,req:['gatework'],cost:240,samples:3,work:10,desc:'見張りの防衛力×1.5、撃退時の戦利品+50%。'},
+  {id:'decoy',name:'偽装入口',branch:'stealth',tier:3,req:['cameras'],cost:230,samples:3,work:10,desc:'警戒度が毎日さらに−2。襲撃者の戦力−20%。'},
   {id:'camouflage',name:'高度な偽装メイク',branch:'stealth',tier:2,req:['makeup'],cost:170,samples:2,work:8,desc:'偽装メイク工房が建設可能に。'},
   {id:'soundproof',name:'防音警備システム',branch:'stealth',tier:2,req:['sanitation'],cost:185,samples:2,work:8,desc:'防音・警備室が建設可能に。'},
   {id:'undercover',name:'社会潜伏訓練',branch:'stealth',tier:3,req:['camouflage','adaptation'],cost:280,samples:4,work:11,desc:'夜勤の露見リスクさらに−1。'},
   {id:'transport',name:'静音物流ルート',branch:'stealth',tier:3,req:['soundproof','logistics'],cost:285,samples:4,work:11,desc:'地上事業の売上+10%、警戒度が毎日さらに−1。'},
   {id:'humanization',name:'人間化技術',branch:'final',tier:4,req:['adaptation','foreman','wordofmouth'],cost:600,samples:6,work:18,desc:'3つの未来から進路を選べる。'}
 ]);
+// v3.5 balance: deeper tiers cost more money and time.
+for(const t of TECHS){const m=[1,1,1.5,1.8,2.2][t.tier]??1;t.cost=Math.round(t.cost*m/5)*5;t.work=Math.round(t.work*(t.tier>=2?1.25:1));}
 export const techById=id=>TECHS.find(t=>t.id===id);
 export function researchState(colony){
   const r=colony.research??{};
@@ -75,7 +83,7 @@ export function startTech(colony,money,id,hasLab){
   if(st==='done')return {ok:false,reason:'研究完了済みです'};
   if(st==='locked')return {ok:false,reason:`前提研究（${t.req.map(q=>techById(q).name).join('・')}）が必要です`};
   if(researchState(colony).active)return {ok:false,reason:'別の研究が進行中です'};
-  if(money<t.cost||(colony.inventory.samples??0)<t.samples)return {ok:false,reason:`研究費${t.cost}G・研究資材${t.samples}個が必要です`};
+  if(money<t.cost||(colony.inventory.samples??0)<t.samples)return {ok:false,reason:`研究費${t.cost}G・研究サンプル${t.samples}個が必要です`};
   return {ok:true,cost:t.cost,money:money-t.cost,colony:{...colony,inventory:{...colony.inventory,samples:colony.inventory.samples-t.samples},research:{active:id,progress:0,started:true}}};
 }
 export function cancelTech(colony){return {...colony,research:{active:null,progress:0,started:false}};}
@@ -106,7 +114,7 @@ export function researchMods(completed=[]){
     foodPack:has('preserve')?8:5,
     supplyMul:has('logistics')?0.8:1,
     homeBonus:has('bunk')?2:0,
-    alertDecay:(has('adaptation')?1:0)+(has('transport')?1:0),
+    alertDecay:(has('adaptation')?1:0)+(has('transport')?1:0)+(has('decoy')?2:0),
     surfaceMul:(has('wordofmouth')?1.15:1)*(has('transport')?1.1:1),
     fleaRebate:has('appraisal')?0.04:0
   };

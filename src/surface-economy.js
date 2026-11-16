@@ -26,6 +26,10 @@ export function propertyLocation(id){
  const accessibility=Math.min(1.25,.72+Math.min(8,frontage)*.065);
  return {frontage,accessibility,grade:frontage>=6?'駅前級':frontage>=3?'通り沿い':frontage>=1?'住宅街':'路地裏'};
 }
+/** v3.3: resale value follows the neighborhood (trust, population, frontage) with a daily market swing. */
+export function propertyValue(id,surface,day=surface.last?.day??0){const p=RENTALS.find(r=>r.id===id);if(!p)return 0;const loc=propertyLocation(id);
+ const swing=((((day*2246822519+id.length*97)>>>0)%21)-10)/100;
+ return Math.round(p.purchase*Math.max(.45,Math.min(1.25,.5+surface.trust/300+surface.humans/320+(loc.accessibility-1)*.5+swing)));}
 export function initialSurfaceEconomy(){return {humans:34,trust:55,leasedOut:[],history:[],last:null};}
 export function tradeProperty(surface,owned,rented,id,action,money){
  const p=RENTALS.find(r=>r.id===id);if(!p)return {ok:false,reason:'物件が見つかりません'};
@@ -40,7 +44,7 @@ export function tradeProperty(surface,owned,rented,id,action,money){
  }
  if(action==='sell'){
   if(!owned.includes(id)||leasing.includes(id))return {ok:false,reason:'所有中の空き物件のみ売却できます（貸出を先に解除）'};
-  const sale=Math.floor(p.purchase*.7);
+  const sale=propertyValue(id,surface);
   return {ok:true,surface,owned:owned.filter(v=>v!==id),money:money+sale,sale};
  }
  return {ok:false,reason:'不明な契約操作'};
@@ -51,18 +55,19 @@ export function advanceSurfaceEconomy(surface,game,owned,rented,day){
  const active=RENTALS.filter(p=>owned.includes(p.id)||rented.includes(p.id));
  const housing=active.filter(p=>PROPERTY_ROLES[p.id]?.capacity).reduce((n,p)=>n+PROPERTY_ROLES[p.id].capacity,0);
  // v3.0: trust is pulled toward a target set by alert (mean-reverting with daily mood swings) instead of stepping to the bounds.
- const tTarget=78-alert*.75+(active.some(p=>p.id==='clinic')?8:0)+Math.min(8,(surface.city?.lots?Object.values(surface.city.lots).filter(l=>l.facility==='garden').length*4:0));
+ const dist=surface.city?.districts??[];
+ const tTarget=78-alert*.75+(active.some(p=>p.id==='clinic')?8:0)+(dist.includes('parkland')?6:0)+Math.min(8,(surface.city?.lots?Object.values(surface.city.lots).filter(l=>l.facility==='garden').length*4:0));
  const swing=((((day??0)*40503+17)>>>0)%7)-3;
  const trust=Math.max(0,Math.min(100,Math.round(surface.trust+(tTarget-surface.trust)*.18+swing)));
  const target=25+housing+Math.round(trust*.25)-Math.round(alert*.24);
  const humans=Math.max(8,Math.min(160,surface.humans+(surface.humans<target?1:surface.humans>target?-2:0)));
- const visitors=Math.max(2,Math.round(humans*(.32+trust/175)*(1-alert/145)));
+ const visitors=Math.max(2,Math.round(humans*(.32+trust/175)*(1-alert/145)*(dist.includes('station')?1.2:1)));
  const items=active.map(p=>{
   const role=PROPERTY_ROLES[p.id],isSublet=leasing.includes(p.id);
   const location=propertyLocation(p.id);
   // v3.0 balance: shops compete for the same visitors; the more businesses you run the thinner each one's share.
   const share=1/(1+.1*Math.max(0,active.length-1));const wobble=.85+((((day??0)*31+p.id.length*17)>>>0)%31)/100;
-  const gross=isSublet?Math.floor(p.rent*1.15):Math.round(role.base*(.2+visitors/48)*(.35+trust/140)*location.accessibility*share*wobble*2.8);
+  const gross=isSublet?Math.floor(p.rent*1.15):Math.round(role.base*(.2+visitors/48)*(.35+trust/140)*location.accessibility*share*wobble*2.8*(dist.includes('business')?1.15:1));
   const upkeep=isSublet?0:Math.max(3,Math.ceil(gross*.32)+2);
   return {id:p.id,name:p.name,gross,upkeep,net:gross-upkeep,leasedOut:isSublet,location:location.grade,frontage:location.frontage};
  });

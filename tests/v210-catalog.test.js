@@ -5,7 +5,7 @@ import {TECHS,techById} from '../src/research.js';
 import {runProduction} from '../src/production.js';
 import {dailyFacilityEffects} from '../src/facility-effects.js';
 import {BUILD_COSTS,FACILITY_SIZES} from '../src/construction.js';
-test('catalog v2.1 counts: 25 facilities, 23 items, 21 recipes, 41 techs',()=>{assert.equal(Object.keys(FACILITY_DEFS).length,25);assert.equal(Object.keys(ITEMS).length,23);assert.equal(Object.keys(RECIPES).length,21);assert.equal(TECHS.length,41);});
+test('catalog v2.1 counts: 26 facilities, 23 items, 21 recipes, 47 techs',()=>{assert.equal(Object.keys(FACILITY_DEFS).length,26);assert.equal(Object.keys(ITEMS).length,23);assert.equal(Object.keys(RECIPES).length,21);assert.equal(TECHS.length,47);});
 test('every reference resolves: facility techs, recipe items/facilities, categories, icons',()=>{
  const cats=new Set(BUILD_CATEGORIES.map(c=>c.id));
  for(const [k,f] of Object.entries(FACILITY_DEFS)){assert.ok(!f.tech||techById(f.tech),k);assert.ok(cats.has(f.cat),k);assert.ok(f.icon&&f.short,k);assert.equal(BUILD_COSTS[k],f.cost);assert.deepEqual(FACILITY_SIZES[k],f.size);assert.ok(FACILITY_KINDS.includes(k));}

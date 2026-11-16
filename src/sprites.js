@@ -3,6 +3,8 @@
 // One sprite pixel = PX world units, so all art shares a single pixel grid.
 export const PX=2;
 const cache=new Map();
+/** v3.4: drop rasterised sprites (after a GPU/canvas context loss they may come back blank). */
+export function clearSpriteCache(){cache.clear();}
 function makeCanvas(w,h){
   // Prefer a real <canvas>: some mobile browsers draw OffscreenCanvas sources as blank.
   if(typeof document!=='undefined'){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}

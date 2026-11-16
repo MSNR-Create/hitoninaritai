@@ -2,7 +2,11 @@ import { FACILITY_DEFS } from './catalog.js';
 import { visibleResidents } from './agent.js';
 import {streetTileKind,vehiclesAt,pedestriansAt} from './surface-city.js';
 import { prop } from './sprites.js';
-import { drawLotFacility } from './lot-art.js';
+import { drawLotFacility, P, box, quad } from './lot-art.js';
+import { drawProp, hasRoomArt, ROOM_ART, setArtTime } from './room-art.js';
+import { homeLayout } from './home-layout.js';
+import { homeCapacity } from './agent.js';
+import { canUnlock, zoneCost } from './construction.js';
 import { surfaceOccupants } from './occupants.js';
 import { zombieSprite, humanSprite, furniture, ROOM_LAYOUT, drawTile, tileHash, blit, shade } from './sprites.js';
 import { MAP_SIZE, TILE_HEIGHT, TILE_WIDTH, tileToWorld, projectedTile, worldToView, rotateTile } from './geometry.js';
@@ -57,7 +61,7 @@ function tileCenter(tx,ty,rotation=0) { return projectedTile(tx,ty,rotation); }
 const BUILDING_COLORS_OLD={pantry:['#f4e4c4','#d0904a','#f0c080'],storage:['#d8cdb8','#7a8a6a','#b0c098'],wash:['#e6f4f8','#4aa0c8','#8fd0ea'],sorting:['#e2d2b4','#8a7a5a','#bfae8a'],extractor:['#e4e0f4','#5a8a9a','#9ad0d8'],home:['#e9c99a','#6fa8c8','#9fd0e4'],shop:['#f0d2a0','#e07a5a','#f6b07a'],exit:['#bfe6cf','#4fa88a','#8fd6b4'],humanHome:['#f1d6b2','#a07ad0','#cbb0ec'],market:['#f3dcb2','#e2605a','#f6a07a'],warehouse:['#d8d0c0','#5f8fb0','#8fbcd8'],clinic:['#f4f4ee','#5fb8a8','#a8e6d8'],cafe:['#ecc896','#c0784a','#e8a876'],lab:['#dcd8f0','#7a6ad0','#aea2ee']};
 const BADGE_OLD={pantry:'🍞',storage:'▦',wash:'♒',sorting:'▤',extractor:'⚛',home:'⌂',shop:'★',exit:'↕',humanHome:'⌂',market:'★',warehouse:'▣',clinic:'✚',cafe:'♨',lab:'⚗'};
 const BADGE={...BADGE_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.icon]))};
-const BUILDING_COLORS={...BUILDING_COLORS_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.color]))};
+const BUILDING_COLORS={mall:['#f4ecf4','#d06a9a','#f0a8c8'],school:['#f0ecd8','#5a9a5a','#a8d8a0'],station:['#e8e8ec','#4a6a9a','#9ab8e0'],office:['#dce4ec','#3a4a6a','#8aa0c0'],hotel:['#f4e8d0','#a0702a','#e0c080'],gate:['#c8ccd0','#5a5a62','#a0a4aa'],...BUILDING_COLORS_OLD,...Object.fromEntries(Object.entries(FACILITY_DEFS).map(([k,f])=>[k,f.color]))};
 export function rotatedRect(b,rotation=0){
   const pts=[[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].map(([x,y])=>rotateGridPoint(x,y,rotation));
   const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
@@ -97,10 +101,14 @@ export function buildingParts(b,connected=true,rotation=0){
   for(let i=0;i<R.w;i++){const P=gp(R.x+i,R.y),Q=gp(R.x+i+1,R.y);parts.push({depth:R.x+i+R.y-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,wall,false)});}
   for(let j=0;j<R.h;j++){const P=gp(R.x,R.y+j),Q=gp(R.x,R.y+j+1);parts.push({depth:R.x+R.y+j-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,trim,false)});}
   parts.push({depth:R.x+R.y-.5,sub:0.5,draw:ctx=>{ctx.strokeStyle='#293f4a';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.x,a.y-H-1.5);ctx.stroke();}});
-  for(const [name,lx0,ly0] of ROOM_LAYOUT[b.kind]??[]){
-    const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];if(lx>=b.w||ly>=b.h)continue;
-    const q=rotateGridPoint(b.x+lx+.5,b.y+ly+.5,rotation),pt=tileToWorld(q.x-.5,q.y-.5);
-    parts.push({depth:q.x+q.y-1,sub:1,draw:ctx=>blit(ctx,furniture(name),pt.x,pt.y+6,rotation%2===1)});
+  // v3.4: detailed per-facility props (room-art) and capacity-sized beds for homes.
+  const put=(lx,ly,draw)=>{if(lx>=b.w||ly>=b.h)return;const q=rotateGridPoint(b.x+lx+.5,b.y+ly+.5,rotation),pt=tileToWorld(q.x-.5,q.y-.5);parts.push({depth:q.x+q.y-1,sub:1,draw:ctx=>draw(ctx,pt)});};
+  if(b.kind==='home'){const L=homeLayout(b,b.cap??2);
+    for(const bed of L.beds)put(bed.lx,bed.ly,(ctx,pt)=>drawProp(ctx,bed.bunk?'bunk':'bed',pt.x,pt.y,rotation%2===1));
+    for(const d of L.decor)put(d.lx,d.ly,(ctx,pt)=>drawProp(ctx,d.name,pt.x,pt.y,rotation%2===1));}
+  else if(hasRoomArt(b.kind)){for(const [lx0,ly0,name] of ROOM_ART[b.kind]){const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];put(lx,ly,(ctx,pt)=>drawProp(ctx,name,pt.x,pt.y,rotation%2===1));}}
+  else for(const [name,lx0,ly0] of ROOM_LAYOUT[b.kind]??[]){
+    const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];put(lx,ly,(ctx,pt)=>blit(ctx,furniture(name),pt.x,pt.y+6,rotation%2===1));
   }
   const overlay=ctx=>{
     const px=Math.round((a.x+d.x)/2),py=Math.round(a.y-H-14);
@@ -137,10 +145,19 @@ function car3d(ctx,c,f,sd,color){
  box(-.24,.18,.17,9,15,shade(color,34),'#2c4654','#3a5e72','#26404e','#8fc8e0');
 }
 function carSprite(ctx,pt,axis,color){car3d(ctx,{x:pt.x,y:pt.y},axis==='x'?[24,12]:[-24,12],axis==='x'?[-14,7]:[14,7],color);}
-function streetPerson(ctx,pt,index,seconds,flip=index%2===1,activity='walk'){
+// v3.3: a sleeper tucked into a bed (or onto a futon) drawn in the bed sprite's own frame.
+export function sleeper(ctx,x,y,{skin,hair,blanket,shade:sh},t,seed,futon,upper=false){
+ // v3.4: drawn on the bed prop's own top surface (z=7; z=20 for the upper bunk); futon = mat on the floor.
+ const z=futon?2:upper?20:7;
+ if(futon)box(ctx,x,y,-14,14,-8,8,2,['#e8e0c8','#c8c0a8','#a8a088','#5a5040'],{top:Tt=>quad(ctx,Tt,.05,.32,.15,.85,'#ffffff')});
+ const [hx,hy]=P(x,y,-9,0,z);ctx.fillStyle=hair;ctx.fillRect(hx-4,hy-6,8,3);ctx.fillStyle=skin;ctx.fillRect(hx-3,hy-4,7,5);ctx.fillStyle='#1b2a2c';ctx.fillRect(hx-1,hy-2,2,1);ctx.fillRect(hx+2,hy-2,1,1);
+ const br=Math.sin(t*2+seed)>0?1:0;box(ctx,x,y-z,-3,14,-7,7,3+br,[blanket,sh,sh,'rgba(0,0,0,.35)']);
+ const k=(t*1.2+seed*.3)%1;ctx.globalAlpha=1-k;ctx.fillStyle='#e6f4ee';const zx=hx+6+k*6,zy=hy-10-k*8;ctx.fillRect(zx,zy,5,1);ctx.fillRect(zx+3,zy+1,1,1);ctx.fillRect(zx+2,zy+2,1,1);ctx.fillRect(zx,zy+3,5,1);ctx.globalAlpha=1;}
+const HSKIN=['#f1c9a5','#c99474','#e3b896','#a8775e'],HHAIR=['#3a2a20','#1d1d1d','#7a4a2a','#d8b060','#4a3a5a'],HSHIRT=[['#c9524a','#9a3a34'],['#4a7ac0','#345a90'],['#e0b040','#b08a28'],['#5aa070','#3e7a52'],['#9a6ac0','#744e94'],['#e08a50','#b06a38']];
+function streetPerson(ctx,pt,index,seconds,flip=index%2===1,activity='walk',onBed=false){
  const x=Math.round(pt.x),y=Math.round(pt.y+4);
  ctx.fillStyle='rgba(9,19,25,.3)';ctx.beginPath();ctx.ellipse(x,y,7,3,0,0,Math.PI*2);ctx.fill();
- if(activity==='sleep'){ctx.save();ctx.translate(x,y-2);ctx.rotate(-Math.PI/2);blit(ctx,humanSprite(index,0),0,8,false);ctx.restore();ctx.fillStyle='#e6f4ee';const z=(seconds*1.2+index*.3)%1;ctx.fillRect(x+10,y-24-z*6,5,2);ctx.fillRect(x+13,y-22-z*6,2,2);ctx.fillRect(x+10,y-20-z*6,5,2);return;}
+ if(activity==='sleep'){const sh=HSHIRT[index%6];sleeper(ctx,Math.round(pt.x),Math.round(pt.y),{skin:HSKIN[index%4],hair:HHAIR[index%5],blanket:sh[0],shade:sh[1]},seconds,index,!onBed);return;}
  blit(ctx,humanSprite(index,Math.floor(seconds*4+index)),x,y,flip);
 }
 function speechBubble(ctx,x,y,text){
@@ -185,13 +202,16 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       const {x:wx,y:wy}=tileCenter(x,y,view.rotation??0), k=`${x},${y}`;
       const closed=world.closed.has(k), path=world.paths.has(k), accent=world.accents.has(k);
       const tileKind=world.id==='surface'?streetTileKind(world,x,y):'underground';
-      let floor=world.id==='surface'?(tileKind==='road'?'#8e9298':tileKind==='sidewalk'?'#e2d3b0':accent?'#9bd27a':((x+y)%2?p.ground1:p.ground2)):closed?p.closed:path?p.path:accent?'#8c7660':((x+y)%2?p.ground1:p.ground2);
+      let floor=world.id==='surface'?(tileKind==='road'?'#8e9298':tileKind==='sidewalk'?'#e2d3b0':tileKind==='fog'?((x+y)%2?'#8a96a4':'#929eac'):tileKind==='water'?'#4a8ac8':tileKind==='wild'?((x*7+y*3)%5?'#5f9450':'#6aa05a'):tileKind==='park'?'#8cc878':accent?'#9bd27a':((x+y)%2?p.ground1:p.ground2)):closed?p.closed:path?p.path:accent?'#8c7660':((x+y)%2?p.ground1:p.ground2);
       const lotHere=world.id==='surface'&&world.lotDefs?.some(l=>x>=l.x&&x<l.x+l.w&&y>=l.y&&y<l.y+l.h);
       if(lotHere)floor=(world.lotOpen?.(x,y)?'#c8a87a':'#9a8a70');
       const style=world.id==='surface'?(tileKind==='road'?'stripe':tileKind==='sidewalk'?'brick':'noise'):closed?'rubble':path?'slab':'noise';
       const texBase=floor.startsWith('#')?floor:'#3a4a50';
       if(!drawTile(ctx,wx,wy,texBase,style,Math.floor(tileHash(x,y)*4)))diamond(ctx,wx,wy,floor,null);
       ctx.globalAlpha=.35;diamond(ctx,wx,wy,null,world.id==='surface'&&tileKind==='road'?null:p.seam);ctx.globalAlpha=1;
+      if(world.showRange?.has(k)&&!closed){ctx.globalAlpha=.16;diamond(ctx,wx,wy,'#8af0a0',null);ctx.globalAlpha=1;}
+      if(tileKind==='fog'){const ph=elapsedSeconds*.3+x*.7+y*.4;ctx.fillStyle=`rgba(235,240,248,${.35+Math.sin(ph)*.12})`;ctx.beginPath();ctx.ellipse(wx+Math.sin(ph)*6,wy-6,20,7,0,0,7);ctx.fill();}
+      if(tileKind==='water'){const sh=(Math.sin(elapsedSeconds*1.5+x*.9+y*1.3)+1)/2;ctx.fillStyle=`rgba(220,240,255,${.15+sh*.25})`;ctx.fillRect(Math.round(wx-10+sh*6),Math.round(wy-2),8,1);ctx.fillRect(Math.round(wx+2-sh*4),Math.round(wy+4),6,1);}
       if(world.id==='surface'&&tileKind==='road'){
         const vertical=[8,9,15,16].includes(x) && ![8,9,15,16].includes(y), horizontal=[8,9,15,16].includes(y) && ![8,9,15,16].includes(x);
         if((vertical&&[9,16].includes(x))||(horizontal&&[9,16].includes(y))){const half=vertical?[-.5,0]:[0,-.5];const along=vertical?[0,.22]:[.22,0];
@@ -205,7 +225,8 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   }
   const rot=view.rotation??0, list=[], overlays=[];
   const depthOf=(x,y)=>{const t=rotateTile(x,y,rot);return t.x+t.y;};
-  for(const b of [...world.buildings,...(world.cityBuildings??[])]){const {parts,overlay}=buildingParts(b,world.connectivity?.[b.id]??true,rot);list.push(...parts);overlays.push(overlay);}
+  setArtTime(elapsedSeconds);
+  for(const b0 of [...world.buildings,...(world.cityBuildings??[])]){const b=b0.kind==='home'?{...b0,cap:homeCapacity(world,b0)}:b0;const {parts,overlay}=buildingParts(b,(world.connectivity?.[b.id]??true)&&!world.unpowered?.has(b.id),rot);list.push(...parts);overlays.push(overlay);}
   if(world.id==='surface'){
     const humanCount=world.humanCount??34,trust=world.humanTrust??55;
     for(const v of vehiclesAt(elapsedSeconds,humanCount,trust)){const pt=projectedTile(v.x,v.y,rot);
@@ -242,18 +263,29 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){const k=x+','+y;if(occupied.has(k))continue;const h=tileHash(x*3+1,y*5+2);let name=null;
     if(world.id==='surface'){const kind=streetTileKind(world,x,y);
       if(kind==='lot')name=h<.16?'tree':h<.24?'flowers':h<.3?'bush':h<.32?'bench':null;
+      else if(kind==='fog')name=null;
+      else if(kind==='wild')name=h<.42?'tree':h<.6?'bush':h<.7?'flowers':null;
+      else if(kind==='park')name=h<.2?'tree':h<.36?'flowers':h<.42?'bench':h<.46?'lamp':null;
       else if(kind==='sidewalk'&&(x*7+y*3)%9===0)name='lamp';}
     else if(!world.paths.has(k)){name=world.closed.has(k)?(h<.08?'crystal':null):h<.05?'mushroom':h<.08?'lantern':h<.1?'crystal':null;}
     if(!name)continue;const pt0=projectedTile(x,y,rot),pt={x:pt0.x,y:pt0.y-(world.id==='underground'?10:0)},dx=(h*7%1-.5)*12;
     list.push({depth:depthOf(x,y),sub:1.5,draw:ctx=>{ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(pt.x+dx,pt.y+4,10,4,0,0,Math.PI*2);ctx.fill();blit(ctx,prop(name),pt.x+dx,pt.y+5);
       if(name==='lantern'||name==='lamp'){const g=ctx.createRadialGradient?.(pt.x+dx,pt.y-(name==='lamp'?20:10),1,pt.x+dx,pt.y-(name==='lamp'?20:10),26);if(!g?.addColorStop)return;g.addColorStop(0,'rgba(255,230,150,.35)');g.addColorStop(1,'rgba(255,230,150,0)');ctx.fillStyle=g;ctx.fillRect(pt.x+dx-26,pt.y-46,52,52);}}});
   }
+  // v3.3: price plaques on locked expansion zones (bright when it can be opened next, dim when not yet adjacent).
+  if(world.id==='underground')for(const z of world.zones??[]){if(z.open)continue;const cx=z.x+(z.w-1)/2,cy=z.y+(z.h-1)/2,pt=projectedTile(cx,cy,rot);
+    const next=canUnlock(world,z.id,Infinity).ok,cost=zoneCost(world,z);
+    list.push({depth:999,sub:9,draw:ctx=>{const txt=`${next?'⛏️':'🔒'} ${z.name}  ${cost}G`;ctx.font='bold 12px system-ui';const w=ctx.measureText?.(txt)?.width??120;
+      const x=Math.round(pt.x-w/2-8),y=Math.round(pt.y-30);ctx.globalAlpha=next?1:.55;ctx.fillStyle='#1a120c';ctx.fillRect(x-1,y-1,w+18,22);ctx.fillStyle=next?'#6a4a2a':'#3a3230';ctx.fillRect(x,y,w+16,20);ctx.fillStyle=next?'#c99a62':'#5a504a';ctx.fillRect(x,y,w+16,2);
+      ctx.fillStyle=next?'#f8e9b0':'#c8c0b8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,pt.x,y+11);ctx.globalAlpha=1;}});}
+  if(world.id==='surface')for(const f of world.fogRegions??[]){const pt=projectedTile(f.x,f.y,rot);list.push({depth:998,sub:9,draw:ctx=>{const txt=`${f.ready?'🏗️':'🔒'} ${f.name}（${f.ready?'出資で開発できます':'未開発'}）`;ctx.font='bold 12px system-ui';const w=ctx.measureText?.(txt)?.width??140;const x=Math.round(pt.x-w/2-8),y=Math.round(pt.y-40);
+   ctx.fillStyle='#1a2430';ctx.fillRect(x-1,y-1,w+18,22);ctx.fillStyle=f.ready?'#6a4a2a':'#3a4a5a';ctx.fillRect(x,y,w+16,20);ctx.fillStyle='#f0f4f8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,pt.x,y+11);}});}
   const bubbles=[];
   if(world.id==='surface'){
     const night=game?((game.tick%120)>=60):false;
     for(const o of surfaceOccupants(world,elapsedSeconds,{night,humans:world.humanCount??34})){
       const pt=projectedTile(o.x,o.y,rot);
-      list.push({depth:depthOf(o.x,o.y),sub:2,draw:ctx=>{streetPerson(ctx,pt,o.id,o.activity==='walk'?elapsedSeconds:0,o.flip,o.activity);
+      list.push({depth:depthOf(o.x,o.y),sub:2,draw:ctx=>{streetPerson(ctx,pt,o.id,o.activity==='sleep'?elapsedSeconds:o.activity==='walk'?elapsedSeconds:0,o.flip,o.activity,o.onBed);
         if(o.carry){ctx.fillStyle='#3a2a1c';ctx.fillRect(Math.round(pt.x-6),Math.round(pt.y-36),12,9);ctx.fillStyle='#c99a62';ctx.fillRect(Math.round(pt.x-5),Math.round(pt.y-35),10,7);}}});
       if(o.bubble)bubbles.push({x:pt.x,y:pt.y-34,text:o.bubble});
     }
@@ -262,7 +294,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
     for(const r of visibleResidents(game,world.id,world)){
       if(r.bubble){const c=projectedTile(r.x,r.y,rot);bubbles.push({x:c.x,y:c.y-30,text:r.bubble});}
       const c=projectedTile(r.x,r.y,rot);
-      list.push({depth:depthOf(r.x,r.y),sub:2,draw:ctx=>{zombie(ctx,c.x,c.y+7,elapsedSeconds,r.index,r.activity??'walk');
+      list.push({depth:depthOf(r.x,r.y),sub:2,draw:ctx=>{if(r.activity==='sleep'){const ZS=[['#7fae7a','#4a7a48'],['#9ab88a','#5e8a50'],['#86a98e','#4e7458']][r.index%3],BL=[['#7a6ab0','#544a80'],['#b0605a','#80403a'],['#5a8ab0','#3e6280'],['#a08a50','#706038']][r.index%4];sleeper(ctx,Math.round(c.x),Math.round(c.y),{skin:ZS[0],hair:'#3a4a3a',blanket:BL[0],shade:BL[1]},elapsedSeconds,r.index,!!r.futon,!!r.upper);return;}zombie(ctx,c.x,c.y+7,elapsedSeconds,r.index,r.activity??'walk');
         if(r.status==='出勤中'||r.status==='帰還中'){ctx.fillStyle='#f8e8af';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.fillText(r.status==='出勤中'?'↑':'↓',c.x,c.y-30);}}});
     }
   }
