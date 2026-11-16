@@ -40,12 +40,12 @@ export function occupantsFor(b,t,{night=false,humans=34}={}){
       break;}
     case 'clinic':{
       push({x:b.x+1,y:b.y+.5,bubble:Math.floor(t/5+seed)%4===0?'お大事に':null});
-      push({x:b.x+.05,y:b.y+.2,activity:'sleep'});
-      if(b.h>1)push({x:b.x+.05,y:b.y+1.2,activity:'sleep',bubble:Math.floor(t/6)%3===1?'はっ！寝てた':null});
+      push({x:b.x,y:b.y+1,activity:'sleep'});
+      if(b.w>2)push({x:b.x+2,y:b.y+1,activity:'sleep',bubble:Math.floor(t/6)%3===1?'はっ！寝てた':null});
       shopper([door(b),L(b,1,.95),door(b)],0,'先生…');
       break;}
     case 'humanHome':{
-      if(night){push({x:b.x+.1,y:b.y+.2,activity:'sleep'});
+      if(night){push({x:b.rot?b.x:b.x,y:b.y,activity:'sleep',onBed:true});
         const w=walkLoop([L(b,1,1.45),L(b,Math.min(2,b.w-1),.6)],t,{dwell:3,phase:seed});push({x:w.x,y:w.y,activity:w.moving?'walk':'idle',flip:w.dx<0,bubble:!w.moving&&w.stop===1?'夜食…':null});}
       else{const w=walkLoop([L(b,1,1.45),L(b,1,.6),L(b,0,.4)],t,{dwell:2.5,phase:seed});push({x:w.x,y:w.y,activity:w.moving?'walk':'idle',flip:w.dx<0,bubble:!w.moving&&w.stop===2&&w.dwellT<1.5?'ふぁ〜':null});
         push({x:b.x+1.2,y:b.y+1.45,bubble:Math.floor(t/7+seed)%4===0?'いい天気':null});}

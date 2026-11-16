@@ -3,6 +3,7 @@ import { visibleResidents } from './agent.js';
 import {streetTileKind,vehiclesAt,pedestriansAt} from './surface-city.js';
 import { prop } from './sprites.js';
 import { drawLotFacility } from './lot-art.js';
+import { canUnlock, zoneCost } from './construction.js';
 import { surfaceOccupants } from './occupants.js';
 import { zombieSprite, humanSprite, furniture, ROOM_LAYOUT, drawTile, tileHash, blit, shade } from './sprites.js';
 import { MAP_SIZE, TILE_HEIGHT, TILE_WIDTH, tileToWorld, projectedTile, worldToView, rotateTile } from './geometry.js';
@@ -137,10 +138,19 @@ function car3d(ctx,c,f,sd,color){
  box(-.24,.18,.17,9,15,shade(color,34),'#2c4654','#3a5e72','#26404e','#8fc8e0');
 }
 function carSprite(ctx,pt,axis,color){car3d(ctx,{x:pt.x,y:pt.y},axis==='x'?[24,12]:[-24,12],axis==='x'?[-14,7]:[14,7],color);}
-function streetPerson(ctx,pt,index,seconds,flip=index%2===1,activity='walk'){
+// v3.3: a sleeper tucked into a bed (or onto a futon) drawn in the bed sprite's own frame.
+export function sleeper(ctx,bx,by,{skin,hair,blanket,shade:sh},t,seed,futon){
+ const L=Math.round(bx-15),T=Math.round(by-16);
+ if(futon){ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(L+1,T+9,28,7);ctx.fillStyle='#d8d0b8';ctx.fillRect(L+2,T+7,26,6);ctx.fillStyle='#e8e4d0';ctx.fillRect(L+3,T+6,7,4);}
+ ctx.fillStyle=hair;ctx.fillRect(L+5,T+1,8,3);ctx.fillStyle=skin;ctx.fillRect(L+6,T+3,7,4);ctx.fillStyle='#1b2a2c';ctx.fillRect(L+8,T+5,2,1);ctx.fillRect(L+11,T+5,1,1);
+ const breathe=Math.sin(t*2+seed)>0?1:0;ctx.fillStyle=blanket;ctx.fillRect(L+12,T+5-breathe,16,6+breathe);ctx.fillStyle=sh;ctx.fillRect(L+12,T+10,16,1);ctx.fillRect(L+12,T+5-breathe,1,6+breathe);
+ ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(L+14,T+6-breathe,10,1);
+ const z=(t*1.2+seed*.3)%1;ctx.globalAlpha=1-z;ctx.fillStyle='#e6f4ee';ctx.fillRect(L+16+z*6,T-6-z*8,5,1);ctx.fillRect(L+19+z*6,T-5-z*8,1,1);ctx.fillRect(L+18+z*6,T-4-z*8,1,1);ctx.fillRect(L+16+z*6,T-3-z*8,5,1);ctx.globalAlpha=1;}
+const HSKIN=['#f1c9a5','#c99474','#e3b896','#a8775e'],HHAIR=['#3a2a20','#1d1d1d','#7a4a2a','#d8b060','#4a3a5a'],HSHIRT=[['#c9524a','#9a3a34'],['#4a7ac0','#345a90'],['#e0b040','#b08a28'],['#5aa070','#3e7a52'],['#9a6ac0','#744e94'],['#e08a50','#b06a38']];
+function streetPerson(ctx,pt,index,seconds,flip=index%2===1,activity='walk',onBed=false){
  const x=Math.round(pt.x),y=Math.round(pt.y+4);
  ctx.fillStyle='rgba(9,19,25,.3)';ctx.beginPath();ctx.ellipse(x,y,7,3,0,0,Math.PI*2);ctx.fill();
- if(activity==='sleep'){ctx.save();ctx.translate(x,y-2);ctx.rotate(-Math.PI/2);blit(ctx,humanSprite(index,0),0,8,false);ctx.restore();ctx.fillStyle='#e6f4ee';const z=(seconds*1.2+index*.3)%1;ctx.fillRect(x+10,y-24-z*6,5,2);ctx.fillRect(x+13,y-22-z*6,2,2);ctx.fillRect(x+10,y-20-z*6,5,2);return;}
+ if(activity==='sleep'){const sh=HSHIRT[index%6];sleeper(ctx,Math.round(pt.x),Math.round(pt.y+6),{skin:HSKIN[index%4],hair:HHAIR[index%5],blanket:sh[0],shade:sh[1]},seconds,index,!onBed);return;}
  blit(ctx,humanSprite(index,Math.floor(seconds*4+index)),x,y,flip);
 }
 function speechBubble(ctx,x,y,text){
@@ -248,12 +258,18 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
     list.push({depth:depthOf(x,y),sub:1.5,draw:ctx=>{ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(pt.x+dx,pt.y+4,10,4,0,0,Math.PI*2);ctx.fill();blit(ctx,prop(name),pt.x+dx,pt.y+5);
       if(name==='lantern'||name==='lamp'){const g=ctx.createRadialGradient?.(pt.x+dx,pt.y-(name==='lamp'?20:10),1,pt.x+dx,pt.y-(name==='lamp'?20:10),26);if(!g?.addColorStop)return;g.addColorStop(0,'rgba(255,230,150,.35)');g.addColorStop(1,'rgba(255,230,150,0)');ctx.fillStyle=g;ctx.fillRect(pt.x+dx-26,pt.y-46,52,52);}}});
   }
+  // v3.3: price plaques on locked expansion zones (bright when it can be opened next, dim when not yet adjacent).
+  if(world.id==='underground')for(const z of world.zones??[]){if(z.open)continue;const cx=z.x+(z.w-1)/2,cy=z.y+(z.h-1)/2,pt=projectedTile(cx,cy,rot);
+    const next=canUnlock(world,z.id,Infinity).ok,cost=zoneCost(world,z);
+    list.push({depth:999,sub:9,draw:ctx=>{const txt=`${next?'⛏️':'🔒'} ${z.name}  ${cost}G`;ctx.font='bold 12px system-ui';const w=ctx.measureText?.(txt)?.width??120;
+      const x=Math.round(pt.x-w/2-8),y=Math.round(pt.y-30);ctx.globalAlpha=next?1:.55;ctx.fillStyle='#1a120c';ctx.fillRect(x-1,y-1,w+18,22);ctx.fillStyle=next?'#6a4a2a':'#3a3230';ctx.fillRect(x,y,w+16,20);ctx.fillStyle=next?'#c99a62':'#5a504a';ctx.fillRect(x,y,w+16,2);
+      ctx.fillStyle=next?'#f8e9b0':'#c8c0b8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,pt.x,y+11);ctx.globalAlpha=1;}});}
   const bubbles=[];
   if(world.id==='surface'){
     const night=game?((game.tick%120)>=60):false;
     for(const o of surfaceOccupants(world,elapsedSeconds,{night,humans:world.humanCount??34})){
       const pt=projectedTile(o.x,o.y,rot);
-      list.push({depth:depthOf(o.x,o.y),sub:2,draw:ctx=>{streetPerson(ctx,pt,o.id,o.activity==='walk'?elapsedSeconds:0,o.flip,o.activity);
+      list.push({depth:depthOf(o.x,o.y),sub:2,draw:ctx=>{streetPerson(ctx,pt,o.id,o.activity==='sleep'?elapsedSeconds:o.activity==='walk'?elapsedSeconds:0,o.flip,o.activity,o.onBed);
         if(o.carry){ctx.fillStyle='#3a2a1c';ctx.fillRect(Math.round(pt.x-6),Math.round(pt.y-36),12,9);ctx.fillStyle='#c99a62';ctx.fillRect(Math.round(pt.x-5),Math.round(pt.y-35),10,7);}}});
       if(o.bubble)bubbles.push({x:pt.x,y:pt.y-34,text:o.bubble});
     }
@@ -262,7 +278,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
     for(const r of visibleResidents(game,world.id,world)){
       if(r.bubble){const c=projectedTile(r.x,r.y,rot);bubbles.push({x:c.x,y:c.y-30,text:r.bubble});}
       const c=projectedTile(r.x,r.y,rot);
-      list.push({depth:depthOf(r.x,r.y),sub:2,draw:ctx=>{zombie(ctx,c.x,c.y+7,elapsedSeconds,r.index,r.activity??'walk');
+      list.push({depth:depthOf(r.x,r.y),sub:2,draw:ctx=>{if(r.activity==='sleep'){const ZS=[['#7fae7a','#4a7a48'],['#9ab88a','#5e8a50'],['#86a98e','#4e7458']][r.index%3],BL=[['#7a6ab0','#544a80'],['#b0605a','#80403a'],['#5a8ab0','#3e6280'],['#a08a50','#706038']][r.index%4];sleeper(ctx,Math.round(c.x),Math.round(c.y+6),{skin:ZS[0],hair:'#3a4a3a',blanket:BL[0],shade:BL[1]},elapsedSeconds,r.index,!!r.futon);return;}zombie(ctx,c.x,c.y+7,elapsedSeconds,r.index,r.activity??'walk');
         if(r.status==='出勤中'||r.status==='帰還中'){ctx.fillStyle='#f8e8af';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.fillText(r.status==='出勤中'?'↑':'↓',c.x,c.y-30);}}});
     }
   }

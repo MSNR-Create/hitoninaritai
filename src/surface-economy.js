@@ -26,6 +26,10 @@ export function propertyLocation(id){
  const accessibility=Math.min(1.25,.72+Math.min(8,frontage)*.065);
  return {frontage,accessibility,grade:frontage>=6?'駅前級':frontage>=3?'通り沿い':frontage>=1?'住宅街':'路地裏'};
 }
+/** v3.3: resale value follows the neighborhood (trust, population, frontage) with a daily market swing. */
+export function propertyValue(id,surface,day=surface.last?.day??0){const p=RENTALS.find(r=>r.id===id);if(!p)return 0;const loc=propertyLocation(id);
+ const swing=((((day*2246822519+id.length*97)>>>0)%21)-10)/100;
+ return Math.round(p.purchase*Math.max(.45,Math.min(1.25,.5+surface.trust/300+surface.humans/320+(loc.accessibility-1)*.5+swing)));}
 export function initialSurfaceEconomy(){return {humans:34,trust:55,leasedOut:[],history:[],last:null};}
 export function tradeProperty(surface,owned,rented,id,action,money){
  const p=RENTALS.find(r=>r.id===id);if(!p)return {ok:false,reason:'物件が見つかりません'};
@@ -40,7 +44,7 @@ export function tradeProperty(surface,owned,rented,id,action,money){
  }
  if(action==='sell'){
   if(!owned.includes(id)||leasing.includes(id))return {ok:false,reason:'所有中の空き物件のみ売却できます（貸出を先に解除）'};
-  const sale=Math.floor(p.purchase*.7);
+  const sale=propertyValue(id,surface);
   return {ok:true,surface,owned:owned.filter(v=>v!==id),money:money+sale,sale};
  }
  return {ok:false,reason:'不明な契約操作'};

@@ -26,13 +26,15 @@ export function connectedFacilities(world){
     return [b.id,connected];
   }));
 }
+/** v3.3: each expansion costs more than the last (×1.4 per opened zone). */
+export function zoneCost(world,zone){const opened=(world.zones??[]).filter(z=>z.open).length;return Math.round(zone.cost*Math.pow(1.4,opened)/5)*5;}
 export function canUnlock(world,zoneId,money){
   const zone=world.zones?.find(z=>z.id===zoneId);if(!zone)return {ok:false,reason:'区画が見つかりません'};
   if(zone.open)return {ok:false,reason:'この区画は開放済みです'};
-  if(money<zone.cost)return {ok:false,reason:`資金不足（必要 ${zone.cost}G）`};
+  const cost=zoneCost(world,zone);if(money<cost)return {ok:false,reason:`資金不足（必要 ${cost}G）`};
   let adjacent=false;
   for(let x=zone.x;x<zone.x+zone.w;x++)for(let y=zone.y;y<zone.y+zone.h;y++)for(const [a,b] of neighbors(x,y))if(!world.closed.has(k(a,b))){adjacent=true;}
-  return adjacent?{ok:true,cost:zone.cost}:{ok:false,reason:'開放済み区画に隣接していません'};
+  return adjacent?{ok:true,cost}:{ok:false,reason:'開放済み区画に隣接していません（外側へ順に拡張）'};
 }
 function footprint(world,x,y,w,h){
   for(let a=x;a<x+w;a++)for(let b=y;b<y+h;b++){

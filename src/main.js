@@ -4,7 +4,7 @@ import { drawScene } from './render.js';
 import { boundCamera, makePinch, applyPinch } from './camera.js';
 import { initialGame, stepGame, assignJob, JOBS, moodOf, jobEligible, jobReqText, SHIFT_HOURS } from './simulation.js';
 import { residentVisual, visibleResidents } from './agent.js';
-import { applyConstruction, canUnlock, zoneAt, connectedFacilities, FACILITY_SIZES, FACILITY_NAMES, BUILD_COSTS } from './construction.js';
+import { applyConstruction, canUnlock, zoneCost, zoneAt, connectedFacilities, FACILITY_SIZES, FACILITY_NAMES, BUILD_COSTS } from './construction.js';
 import { MAP_SIZE } from './geometry.js';
 import * as C from './colonists.js';
 import * as CITY from './city.js';
@@ -28,7 +28,7 @@ import { serializeSession, validateSession, hydrateWorld, saveSnapshot, loadSnap
 import { sceneDefinition, paintEvent, eventsForDay } from './event-scenes.js';
 import { createLedger, addTransaction, daySummary, balanceSeries, validateLedger } from './finance.js';
 import { demolitionTarget, applyDemolition } from './demolition.js';
-import { initialSurfaceEconomy, advanceSurfaceEconomy, tradeProperty, PROPERTY_ROLES, propertyLocation } from './surface-economy.js';
+import { initialSurfaceEconomy, advanceSurfaceEconomy, tradeProperty, PROPERTY_ROLES, propertyLocation, propertyValue } from './surface-economy.js';
 import { formattedGameClock, ticksUntilNextDay, nextSpeed } from './game-clock.js';
 
 const canvas=document.getElementById('scene');const ctx=canvas.getContext('2d',{alpha:false});
@@ -150,7 +150,7 @@ function buildAt(tile){
   const zone=zoneAt(world,tile.x,tile.y);
   if(!zone||zone.open){status('開放可能な閉鎖区画を選んでください。');return;}
   const second=buildChoice?.kind==='unlock'&&zoneAt(world,buildChoice.x,buildChoice.y)?.id===zone.id;
-  if(!second){buildChoice={kind:'unlock',x:tile.x,y:tile.y};status(`${zone.name}：開放費用 ${zone.cost}G。もう一度この区画をタップして確定。`);updatePlacement();return;}
+  if(!second){buildChoice={kind:'unlock',x:tile.x,y:tile.y};status(`${zone.name}：開放費用 ${zoneCost(world,zone)}G。もう一度この区画をタップして確定。`);updatePlacement();return;}
   const result=applyConstruction(world,{type:'unlock',zoneId:zone.id},game.money);
   if(!result.ok){status(result.reason);return;}
   worlds.underground=result.world;game={...game,money:result.money};moneyChange(-result.cost,'建設',zone.name+'の区画開放');sfx('build');buildChoice=null;status(`${zone.name} を開放（−${result.cost}G）`);
@@ -386,12 +386,12 @@ function renderPropertyDialog(){
  const dialog=el('propertyDialog'),p=RENTALS.find(q=>q.id===dialog.dataset.id);if(!p)return;
  const mine=owned.includes(p.id),rental=rented.includes(p.id),sublet=surfaceEconomy.leasedOut.includes(p.id),role=PROPERTY_ROLES[p.id],location=propertyLocation(p.id);
  el('propertyTitle').textContent=p.name;
- el('propertyDetails').textContent=`${role?.name??'地上物件'}：${role?.detail??''}\n面積 ${p.w}×${p.h}／契約金 ${p.deposit}G／日額家賃 ${p.rent}G／購入 ${p.purchase}G\n状態：${mine?(sublet?'所有・人間に貸出中':'所有・自営中'):rental?'賃借・自営中':'未契約'}。\n立地：${location?.grade??'不明'}／道路接面 ${location?.frontage??0}／集客倍率 ${location?.accessibility??1}倍\n街の人間 ${surfaceEconomy.humans}人／信頼 ${surfaceEconomy.trust}/100／来客 ${surfaceEconomy.last?.visitors??'—'}人`;
+ el('propertyDetails').textContent=`${role?.name??'地上物件'}：${role?.detail??''}\n面積 ${p.w}×${p.h}／契約金 ${p.deposit}G／日額家賃 ${p.rent}G／購入 ${p.purchase}G\n状態：${mine?(sublet?'所有・人間に貸出中':'所有・自営中'):rental?'賃借・自営中':'未契約'}。\n立地：${location?.grade??'不明'}／道路接面 ${location?.frontage??0}／集客倍率 ${location?.accessibility??1}倍\n現在の売却相場：${propertyValue(p.id,surfaceEconomy)}G（購入価格の${Math.round(propertyValue(p.id,surfaceEconomy)/p.purchase*100)}%・信頼/人口/立地と日々の相場で変動）\n街の人間 ${surfaceEconomy.humans}人／信頼 ${surfaceEconomy.trust}/100／来客 ${surfaceEconomy.last?.visitors??'—'}人`;
  const actions=el('propertyDialogActions');actions.replaceChildren();
  const button=(label,handler,disabled=false)=>{const b=document.createElement('button');b.textContent=label;b.disabled=disabled;b.addEventListener('click',handler);actions.append(b);};
  if(!mine&&!rental){button(`借りる ${p.deposit}G`,()=>{el('rentSelected').click();renderPropertyDialog();},game.money<p.deposit);button(`買う ${p.purchase}G`,()=>{el('buySelected').click();renderPropertyDialog();},game.money<p.purchase);}
- else if(mine){button(sublet?'貸出解除':'貸す',()=>{const r=tradeProperty(surfaceEconomy,owned,rented,p.id,sublet?'unlease':'lease',game.money);if(!r.ok)return;surfaceEconomy=r.surface;renderPropertyDialog();updateSurfacePanel();saveNow();});button(`売る +${Math.floor(p.purchase*.7)}G`,()=>{const r=tradeProperty(surfaceEconomy,owned,rented,p.id,'sell',game.money);if(!r.ok){el('propertyDetails').textContent+='\n'+r.reason;return;}const diff=r.money-game.money;owned=r.owned;game={...game,money:r.money};moneyChange(diff,'不動産売却',p.name+'を売却');renderPropertyDialog();updateEconomy();saveNow();},sublet);}
- else button('賃借中',()=>{},true);
+ else if(mine){button(sublet?'貸出解除':'貸す',()=>{const r=tradeProperty(surfaceEconomy,owned,rented,p.id,sublet?'unlease':'lease',game.money);if(!r.ok)return;surfaceEconomy=r.surface;renderPropertyDialog();updateSurfacePanel();saveNow();});button(`売る +${propertyValue(p.id,surfaceEconomy)}G（相場）`,()=>{const r=tradeProperty(surfaceEconomy,owned,rented,p.id,'sell',game.money);if(!r.ok){el('propertyDetails').textContent+='\n'+r.reason;return;}const diff=r.money-game.money;owned=r.owned;game={...game,money:r.money};moneyChange(diff,'不動産売却',p.name+'を売却');renderPropertyDialog();updateEconomy();saveNow();},sublet);}
+ else button('解約する（契約金は戻りません）',()=>{rented=rented.filter(v=>v!==p.id);sfx('pay');renderPropertyDialog();updateEconomy();updateSurfacePanel();saveNow();});
 }
 el('propertyClose').addEventListener('click',()=>el('propertyDialog').close());
 function updateSurfacePanel(){
@@ -402,7 +402,7 @@ function updateSurfacePanel(){
 function refreshResidentRows(){
  const host=el('residentJobs');
  for(const row of [...host.children])if(!game.residents.some(r=>String(r.id)===row.dataset.id))row.remove();
- for(const r of game.residents){
+ for(let r of game.residents){
   let line=[...host.children].find(node=>node.dataset.id===String(r.id));
   if(!line){
    line=document.createElement('div');line.className='resident-row';line.dataset.id=String(r.id);
@@ -415,10 +415,13 @@ function refreshResidentRows(){
    line.append(name,select,grow,info);host.append(line);
   }
   const visual=residentVisual(game,r),name=line.firstElementChild,select=line.querySelector('select');
-  const cr=C.ensureColonist(r),st=C.decayStage(cr.decay);name.textContent=`${r.name} Lv${cr.level} · 疲労${r.fatigue} · 衝動${r.impulse??0} · 腐敗${Math.round(cr.decay)}(${st.name}) · 臭気${C.odorOf(cr)} · ${r.strikeDays>0?'✊ストライキ · ':''}${visual.status}`;
-  line.querySelector('.grow-btn').textContent=cr.sp>0?`育成 ⬆${cr.sp}`:'育成';
-  for(const o of line.querySelector('select').options){const ok=jobEligible(cr,o.value);o.disabled=!ok;o.textContent=ok?o.dataset.base:`🔒 ${o.dataset.base}（要${jobReqText(o.value)}）`;}
-  name.title=visual.reason;
+  // v3.3: a job the resident can't hold (e.g. starting residents) becomes 「夜の稼ぎはおまかせ」 instead of showing a locked choice.
+  if(document.activeElement!==select&&!jobEligible(C.ensureColonist(r),r.job)){game=assignJob(game,r.id,'auto');r=game.residents.find(x=>x.id===r.id);}
+  const cr=C.ensureColonist(r),st=C.decayStage(cr.decay);{const txt=`${r.name} Lv${cr.level} · 疲労${r.fatigue} · 衝動${r.impulse??0} · 腐敗${Math.round(cr.decay)}(${st.name}) · 臭気${C.odorOf(cr)} · ${r.strikeDays>0?'✊ストライキ · ':''}${visual.status}`;if(name.textContent!==txt)name.textContent=txt;}
+  {const g=line.querySelector('.grow-btn'),txt=cr.sp>0?`育成 ⬆${cr.sp}`:'育成';if(g.textContent!==txt)g.textContent=txt;}
+  // v3.3: never touch an open/focused picker, and only write when something actually changed (mobile pickers flicker otherwise).
+  if(document.activeElement!==select)for(const o of select.options){const ok=jobEligible(cr,o.value),txt=ok?o.dataset.base:`🔒 ${o.dataset.base}（要${jobReqText(o.value)}）`;if(o.disabled!==!ok)o.disabled=!ok;if(o.textContent!==txt)o.textContent=txt;}
+  if(name.title!==visual.reason)name.title=visual.reason;
   // Keep the select DOM mounted and don't touch its value during native selection.
   if(document.activeElement!==select && select.value!==r.job)select.value=r.job;
  }
