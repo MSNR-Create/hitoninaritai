@@ -157,6 +157,16 @@ function zombie(ctx,x,y,t,kind=0,activity='walk'){
   const top=y-33;
   if(activity==='sleep'){const z=(t*1.2+kind*.3)%1;ctx.globalAlpha=1-z;ctx.fillStyle='#e6f4ee';ctx.fillRect(Math.round(x+8+z*6),Math.round(top-z*10),6,2);ctx.fillRect(Math.round(x+12+z*6),Math.round(top+2-z*10),2,2);ctx.fillRect(Math.round(x+8+z*6),Math.round(top+4-z*10),6,2);ctx.globalAlpha=1;}
   if(activity==='research'){ctx.fillStyle='#1b2a2c';ctx.fillRect(x+9,y-17,6,9);ctx.fillStyle='#7ee0c6';ctx.fillRect(x+10,y-14,4,5);if(frame%2){ctx.fillStyle='#e8ffd8';ctx.fillRect(x+11,y-20,2,2);}}
+  // v3.2 facility-specific work motions
+  {const f=frame%2,ph=Math.floor(t*6+kind)%4;
+   if(activity==='cook'){ctx.fillStyle='#2a2a2a';ctx.fillRect(x+6,y-12,10,3);ctx.fillRect(x+15,y-11,4,1);ctx.fillStyle=ph%2?'#f0a030':'#e0502a';ctx.fillRect(x+8,y-9,2,2);ctx.fillRect(x+12,y-9,2,2);ctx.fillStyle=`rgba(240,240,240,${.4+.3*f})`;ctx.fillRect(x+9,y-17-ph,2,3);ctx.fillRect(x+12,y-19-((ph+2)%4),2,3);}
+   if(activity==='craft'){const up=ph<2;ctx.fillStyle='#7a5434';ctx.fillRect(x+10,up?y-22:y-15,2,8);ctx.fillStyle='#9aa0a8';ctx.fillRect(x+8,up?y-24:y-16,6,3);ctx.fillStyle='#6a4a2a';ctx.fillRect(x+6,y-8,12,3);if(ph===2){ctx.fillStyle='#ffe080';ctx.fillRect(x+15,y-12,2,2);ctx.fillRect(x+5,y-13,2,2);}}
+   if(activity==='sort'){const lift=ph<2?0:4;ctx.fillStyle='#3a2a1c';ctx.fillRect(x-6,y-16-lift,12,9);ctx.fillStyle='#c99a62';ctx.fillRect(x-5,y-15-lift,10,7);ctx.fillStyle='#e8d0a0';ctx.fillRect(x-1,y-15-lift,2,7);}
+   if(activity==='farm'){ctx.fillStyle='#3a7ac0';ctx.fillRect(x+7,y-13,7,5);ctx.fillRect(x+13,y-15,4,2);ctx.fillStyle='#8ad0ff';for(let i=0;i<3;i++)ctx.fillRect(x+17+i,y-13+((ph+i)%4)*2,1,2);ctx.fillStyle='#4fa040';ctx.fillRect(x+16,y-3,5,3);}
+   if(activity==='pump'){const up=ph<2;ctx.fillStyle='#5a6070';ctx.fillRect(x+12,y-14,3,12);ctx.fillStyle='#9aa0a8';ctx.fillRect(x+6,up?y-18:y-13,10,2);ctx.fillStyle='#6ab0e8';if(!up)ctx.fillRect(x+15,y-4,3,2);}
+   if(activity==='brew'){ctx.fillStyle='#d8f0e8';ctx.fillRect(x+9,y-13,6,7);ctx.fillStyle='#5ae0a0';ctx.fillRect(x+10,y-10,4,4);ctx.fillStyle=`rgba(140,255,190,${.5+.4*f})`;ctx.fillRect(x+11,y-16-ph,2,2);ctx.fillRect(x+13,y-18-((ph+1)%4),1,1);}
+   if(activity==='read'){ctx.fillStyle='#8a3a2a';ctx.fillRect(x+5,y-14,10,7);ctx.fillStyle='#f4ecd8';ctx.fillRect(x+6,y-13,4,5);ctx.fillRect(x+11,y-13,3,5);if(ph===3){ctx.fillStyle='#fff';ctx.fillRect(x+9,y-15,2,7);}}
+   if(activity==='chat'){ctx.fillStyle='#e8f4ee';for(let i=0;i<3;i++)if(i<=ph%3+0)ctx.fillRect(x+8+i*3,top-4,2,2);}}
   if(activity==='strike'){ctx.fillStyle='#1b2a2c';ctx.fillRect(x+7,top-6,14,10);ctx.fillStyle='#f2c69a';ctx.fillRect(x+8,top-5,12,8);ctx.fillStyle='#b8423c';ctx.fillRect(x+10,top-3,8,2);ctx.fillStyle='#6b4c3a';ctx.fillRect(x+13,top+4,2,8);}
 }
 export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize, game, placement=null) {

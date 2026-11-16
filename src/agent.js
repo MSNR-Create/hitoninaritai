@@ -40,6 +40,9 @@ function workSpot(game,resident,world,kinds,idx){const fac=(world?.buildings??[]
  const mates=want!=null?game.residents.filter(r=>world.workPlaces?.[r.name]===want&&r.activeJob===resident.activeJob):[];const k=Math.max(0,mates.findIndex(r=>r.id===resident.id));
  const spots=[[.3,.35],[.7,.65],[.7,.3],[.3,.7]];const s=want!=null?spots[k%4]:[(idx%2)?.7:.3,.5];
  return {b,pt:[b.x+.15+s[0]*Math.max(.2,b.w-.3),b.y+.15+s[1]*Math.max(.2,b.h-.3)]};}
+// v3.2: each facility gets its own work motion and chatter.
+const WORK_ACT={kitchen:['cook','🍳ジュウ…'],mushroom:['farm','🍄すくすく'],farm:['farm','💧じょうろ'],water:['pump','💧ギコギコ'],extractor:['pump','⚙️ギコギコ'],sorting:['sort','♻️よいしょ'],recycler:['sort','♻️ガシャン'],
+ chemical:['brew','🧪ぶくぶく'],culture:['brew','🧫ふむ…'],workshop:['craft','🔨トンテン'],disguise:['craft','🎭ぬりぬり'],archives:['read','📚ぱらぱら'],lounge:['read','🎲わいわい'],lab:['research','🔬ふむふむ']};
 const PROCESS_KINDS=['sorting','extractor','mushroom','kitchen','farm','water','chemical','culture','recycler','workshop','disguise','archives','lounge'];
 export function residentVisual(game,resident,world=null){
   const index=game.residents.findIndex(r=>r.id===resident.id);
@@ -63,8 +66,10 @@ export function residentVisual(game,resident,world=null){
       if(u<.4)return {layer:'underground',...walk(world,home,counter,u/.4),status:'地下で生活',activity:'walk',reason:'配給所へ食事を受け取りに行きます'};
       if(u<.62)return {layer:'underground',x:counter[0],y:counter[1],status:'地下で生活',activity:'idle',bubble:index%2?'ごはん！':'いただきます',reason:'配給所で食料を受け取っています'};
       return {layer:'underground',...walk(world,counter,home,(u-.62)/.38),status:'地下で生活',activity:'walk',reason:'食事を終えて住居へ戻ります'};}
-    const move=Math.sin((clock-43)/17*Math.PI)*.85;
-    return {layer:'underground',x:home[0]+move,y:home[1]+move*.25,status:'地下で生活',activity:'walk',reason:'次の勤務まで地下で過ごしています'};
+    // v3.2: free time differs per resident — reading, chatting, napping or pacing.
+    const hobby=['read','chat','sleep','wander'][index%4];
+    if(hobby==='wander'){const move=Math.sin((clock-43)/17*Math.PI)*.85;return {layer:'underground',x:home[0]+move,y:home[1]+move*.25,status:'地下で生活',activity:'walk',reason:'次の勤務まで地下をうろうろしています'};}
+    return {layer:'underground',x:home[0]+(hobby==='chat'?.35:0),y:home[1],status:'地下で生活',activity:hobby,bubble:hobby==='chat'&&(clock+index)%6<2?['それでね…','へぇ〜','ウゥ…（笑）'][index%3]:null,reason:{read:'住居で本を読んでいます',chat:'仲間とおしゃべり中',sleep:'昼寝をしています'}[hobby]};
   }
   if(resident.activeJob==='process'||resident.activeJob==='research'){
     const idx=game.residents.filter(r=>r.activeJob===resident.activeJob).findIndex(r=>r.id===resident.id);
@@ -72,7 +77,8 @@ export function residentVisual(game,resident,world=null){
     const dest=spot?.pt??[9.1,6.5],night=clock-60;
     if(night>=0&&night<12)return {layer:'underground',...walk(world,home,dest,night/11),status:resident.activeJob==='research'?'研究室へ移動':'作業場へ移動',activity:'walk',reason:'担当の施設へ向かっています'};
     const research=resident.activeJob==='research';const nm=spot?.b?.name??'';
-    return {layer:'underground',x:dest[0],y:dest[1],status:research?'研究中':'素材加工中',activity:'research',bubble:(clock+index*4)%15<3?(research?'ふむふむ…':'作業中…'):null,reason:research?'地下研究室で研究を進めています':`${nm}で作業しています`};}
+    const wa=WORK_ACT[spot?.b?.kind]??['craft','作業中…'];
+    return {layer:'underground',x:dest[0],y:dest[1],status:research?'研究中':'素材加工中',activity:wa[0],bubble:(clock+index*4)%15<3?wa[1]:null,reason:research?'地下研究室で研究を進めています':`${nm}で作業しています`};}
   if(resident.activeJob==='rest')return {layer:'underground',x:home[0],y:home[1],status:'休息中',activity:'sleep',reason:resident.fatigue>=85?'疲労が高いため夜勤より休息を優先':'休息を指示されているため地下にいます'};
   const night=clock-60;
   if(night<14)return {layer:'underground',...walk(world,home,HUB,night/13),status:'出勤中',reason:'割り当てられた夜勤へ向かっています'};

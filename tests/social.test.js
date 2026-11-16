@@ -6,13 +6,13 @@ import {initialColony} from '../src/colony.js';
 const happy=(g)=>({...g,residents:g.residents.map(r=>({...r,impulse:5,fatigue:10,wellDays:4,lastNeeds:{food:true},strikeDays:0}))});
 test('safe daily contact builds named neighbor friendship with an explanatory history',()=>{
  const g=happy(initialGame()), c=initialColony();let s=initialSocial();
- let result=advanceSocial(s,g,c,5);assert.equal(result.social.links[1].affinity,1);
+ let result=advanceSocial(s,g,c,5);assert.equal(result.social.links[1].affinity,0);result=advanceSocial(result.social,g,c,5);assert.equal(result.social.links[1].affinity,1);
  assert.match(result.social.history[0].reason,/配給/);assert.equal(result.game.residents.length,5);
 });
-test('conversion requires capacity, food and four days of actual friendly contact',()=>{
+test('conversion requires capacity, food and ten days of actual friendly contact',()=>{
  let g=happy(initialGame());let c=initialColony();c.inventory.food=40;let s=initialSocial();
- for(let i=0;i<4;i++){const result=advanceSocial(s,g,c,5);s=result.social;g=result.game;}
- assert.equal(g.residents.length,5);
+ for(let i=0;i<10;i++){const result=advanceSocial(s,g,c,5);s=result.social;g=result.game;}
+ assert.equal(g.residents.length,5);assert.ok(s.history.some(e=>e.kind==='waiting'&&/住居/.test(e.message)));
  const result=advanceSocial(s,g,c,6);assert.equal(result.game.residents.length,6);assert.equal(result.conversion.name,'朝倉ユイ');assert.equal(result.social.neighbors[0].converted,true);
  const again=advanceSocial(result.social,result.game,c,6);assert.equal(again.game.residents.length,6);
 });
