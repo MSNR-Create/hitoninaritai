@@ -2,7 +2,10 @@ import { FACILITY_DEFS } from './catalog.js';
 import { visibleResidents } from './agent.js';
 import {streetTileKind,vehiclesAt,pedestriansAt} from './surface-city.js';
 import { prop } from './sprites.js';
-import { drawLotFacility } from './lot-art.js';
+import { drawLotFacility, P, box, quad } from './lot-art.js';
+import { drawProp, hasRoomArt, ROOM_ART, setArtTime } from './room-art.js';
+import { homeLayout } from './home-layout.js';
+import { homeCapacity } from './agent.js';
 import { canUnlock, zoneCost } from './construction.js';
 import { surfaceOccupants } from './occupants.js';
 import { zombieSprite, humanSprite, furniture, ROOM_LAYOUT, drawTile, tileHash, blit, shade } from './sprites.js';
@@ -98,10 +101,14 @@ export function buildingParts(b,connected=true,rotation=0){
   for(let i=0;i<R.w;i++){const P=gp(R.x+i,R.y),Q=gp(R.x+i+1,R.y);parts.push({depth:R.x+i+R.y-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,wall,false)});}
   for(let j=0;j<R.h;j++){const P=gp(R.x,R.y+j),Q=gp(R.x,R.y+j+1);parts.push({depth:R.x+R.y+j-.5,sub:0,draw:ctx=>wallSegment(ctx,P,Q,H,trim,false)});}
   parts.push({depth:R.x+R.y-.5,sub:0.5,draw:ctx=>{ctx.strokeStyle='#293f4a';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(a.x,a.y-H-1.5);ctx.stroke();}});
-  for(const [name,lx0,ly0] of ROOM_LAYOUT[b.kind]??[]){
-    const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];if(lx>=b.w||ly>=b.h)continue;
-    const q=rotateGridPoint(b.x+lx+.5,b.y+ly+.5,rotation),pt=tileToWorld(q.x-.5,q.y-.5);
-    parts.push({depth:q.x+q.y-1,sub:1,draw:ctx=>blit(ctx,furniture(name),pt.x,pt.y+6,rotation%2===1)});
+  // v3.4: detailed per-facility props (room-art) and capacity-sized beds for homes.
+  const put=(lx,ly,draw)=>{if(lx>=b.w||ly>=b.h)return;const q=rotateGridPoint(b.x+lx+.5,b.y+ly+.5,rotation),pt=tileToWorld(q.x-.5,q.y-.5);parts.push({depth:q.x+q.y-1,sub:1,draw:ctx=>draw(ctx,pt)});};
+  if(b.kind==='home'){const L=homeLayout(b,b.cap??2);
+    for(const bed of L.beds)put(bed.lx,bed.ly,(ctx,pt)=>drawProp(ctx,bed.bunk?'bunk':'bed',pt.x,pt.y,rotation%2===1));
+    for(const d of L.decor)put(d.lx,d.ly,(ctx,pt)=>drawProp(ctx,d.name,pt.x,pt.y,rotation%2===1));}
+  else if(hasRoomArt(b.kind)){for(const [lx0,ly0,name] of ROOM_ART[b.kind]){const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];put(lx,ly,(ctx,pt)=>drawProp(ctx,name,pt.x,pt.y,rotation%2===1));}}
+  else for(const [name,lx0,ly0] of ROOM_LAYOUT[b.kind]??[]){
+    const [lx,ly]=b.rot?[ly0,lx0]:[lx0,ly0];put(lx,ly,(ctx,pt)=>blit(ctx,furniture(name),pt.x,pt.y+6,rotation%2===1));
   }
   const overlay=ctx=>{
     const px=Math.round((a.x+d.x)/2),py=Math.round(a.y-H-14);
@@ -139,18 +146,18 @@ function car3d(ctx,c,f,sd,color){
 }
 function carSprite(ctx,pt,axis,color){car3d(ctx,{x:pt.x,y:pt.y},axis==='x'?[24,12]:[-24,12],axis==='x'?[-14,7]:[14,7],color);}
 // v3.3: a sleeper tucked into a bed (or onto a futon) drawn in the bed sprite's own frame.
-export function sleeper(ctx,bx,by,{skin,hair,blanket,shade:sh},t,seed,futon){
- const L=Math.round(bx-15),T=Math.round(by-16);
- if(futon){ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(L+1,T+9,28,7);ctx.fillStyle='#d8d0b8';ctx.fillRect(L+2,T+7,26,6);ctx.fillStyle='#e8e4d0';ctx.fillRect(L+3,T+6,7,4);}
- ctx.fillStyle=hair;ctx.fillRect(L+5,T+1,8,3);ctx.fillStyle=skin;ctx.fillRect(L+6,T+3,7,4);ctx.fillStyle='#1b2a2c';ctx.fillRect(L+8,T+5,2,1);ctx.fillRect(L+11,T+5,1,1);
- const breathe=Math.sin(t*2+seed)>0?1:0;ctx.fillStyle=blanket;ctx.fillRect(L+12,T+5-breathe,16,6+breathe);ctx.fillStyle=sh;ctx.fillRect(L+12,T+10,16,1);ctx.fillRect(L+12,T+5-breathe,1,6+breathe);
- ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(L+14,T+6-breathe,10,1);
- const z=(t*1.2+seed*.3)%1;ctx.globalAlpha=1-z;ctx.fillStyle='#e6f4ee';ctx.fillRect(L+16+z*6,T-6-z*8,5,1);ctx.fillRect(L+19+z*6,T-5-z*8,1,1);ctx.fillRect(L+18+z*6,T-4-z*8,1,1);ctx.fillRect(L+16+z*6,T-3-z*8,5,1);ctx.globalAlpha=1;}
+export function sleeper(ctx,x,y,{skin,hair,blanket,shade:sh},t,seed,futon,upper=false){
+ // v3.4: drawn on the bed prop's own top surface (z=7; z=20 for the upper bunk); futon = mat on the floor.
+ const z=futon?2:upper?20:7;
+ if(futon)box(ctx,x,y,-14,14,-8,8,2,['#e8e0c8','#c8c0a8','#a8a088','#5a5040'],{top:Tt=>quad(ctx,Tt,.05,.32,.15,.85,'#ffffff')});
+ const [hx,hy]=P(x,y,-9,0,z);ctx.fillStyle=hair;ctx.fillRect(hx-4,hy-6,8,3);ctx.fillStyle=skin;ctx.fillRect(hx-3,hy-4,7,5);ctx.fillStyle='#1b2a2c';ctx.fillRect(hx-1,hy-2,2,1);ctx.fillRect(hx+2,hy-2,1,1);
+ const br=Math.sin(t*2+seed)>0?1:0;box(ctx,x,y-z,-3,14,-7,7,3+br,[blanket,sh,sh,'rgba(0,0,0,.35)']);
+ const k=(t*1.2+seed*.3)%1;ctx.globalAlpha=1-k;ctx.fillStyle='#e6f4ee';const zx=hx+6+k*6,zy=hy-10-k*8;ctx.fillRect(zx,zy,5,1);ctx.fillRect(zx+3,zy+1,1,1);ctx.fillRect(zx+2,zy+2,1,1);ctx.fillRect(zx,zy+3,5,1);ctx.globalAlpha=1;}
 const HSKIN=['#f1c9a5','#c99474','#e3b896','#a8775e'],HHAIR=['#3a2a20','#1d1d1d','#7a4a2a','#d8b060','#4a3a5a'],HSHIRT=[['#c9524a','#9a3a34'],['#4a7ac0','#345a90'],['#e0b040','#b08a28'],['#5aa070','#3e7a52'],['#9a6ac0','#744e94'],['#e08a50','#b06a38']];
 function streetPerson(ctx,pt,index,seconds,flip=index%2===1,activity='walk',onBed=false){
  const x=Math.round(pt.x),y=Math.round(pt.y+4);
  ctx.fillStyle='rgba(9,19,25,.3)';ctx.beginPath();ctx.ellipse(x,y,7,3,0,0,Math.PI*2);ctx.fill();
- if(activity==='sleep'){const sh=HSHIRT[index%6];sleeper(ctx,Math.round(pt.x),Math.round(pt.y+6),{skin:HSKIN[index%4],hair:HHAIR[index%5],blanket:sh[0],shade:sh[1]},seconds,index,!onBed);return;}
+ if(activity==='sleep'){const sh=HSHIRT[index%6];sleeper(ctx,Math.round(pt.x),Math.round(pt.y),{skin:HSKIN[index%4],hair:HHAIR[index%5],blanket:sh[0],shade:sh[1]},seconds,index,!onBed);return;}
  blit(ctx,humanSprite(index,Math.floor(seconds*4+index)),x,y,flip);
 }
 function speechBubble(ctx,x,y,text){
@@ -215,7 +222,8 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   }
   const rot=view.rotation??0, list=[], overlays=[];
   const depthOf=(x,y)=>{const t=rotateTile(x,y,rot);return t.x+t.y;};
-  for(const b of [...world.buildings,...(world.cityBuildings??[])]){const {parts,overlay}=buildingParts(b,world.connectivity?.[b.id]??true,rot);list.push(...parts);overlays.push(overlay);}
+  setArtTime(elapsedSeconds);
+  for(const b0 of [...world.buildings,...(world.cityBuildings??[])]){const b=b0.kind==='home'?{...b0,cap:homeCapacity(world,b0)}:b0;const {parts,overlay}=buildingParts(b,world.connectivity?.[b.id]??true,rot);list.push(...parts);overlays.push(overlay);}
   if(world.id==='surface'){
     const humanCount=world.humanCount??34,trust=world.humanTrust??55;
     for(const v of vehiclesAt(elapsedSeconds,humanCount,trust)){const pt=projectedTile(v.x,v.y,rot);
@@ -278,7 +286,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
     for(const r of visibleResidents(game,world.id,world)){
       if(r.bubble){const c=projectedTile(r.x,r.y,rot);bubbles.push({x:c.x,y:c.y-30,text:r.bubble});}
       const c=projectedTile(r.x,r.y,rot);
-      list.push({depth:depthOf(r.x,r.y),sub:2,draw:ctx=>{if(r.activity==='sleep'){const ZS=[['#7fae7a','#4a7a48'],['#9ab88a','#5e8a50'],['#86a98e','#4e7458']][r.index%3],BL=[['#7a6ab0','#544a80'],['#b0605a','#80403a'],['#5a8ab0','#3e6280'],['#a08a50','#706038']][r.index%4];sleeper(ctx,Math.round(c.x),Math.round(c.y+6),{skin:ZS[0],hair:'#3a4a3a',blanket:BL[0],shade:BL[1]},elapsedSeconds,r.index,!!r.futon);return;}zombie(ctx,c.x,c.y+7,elapsedSeconds,r.index,r.activity??'walk');
+      list.push({depth:depthOf(r.x,r.y),sub:2,draw:ctx=>{if(r.activity==='sleep'){const ZS=[['#7fae7a','#4a7a48'],['#9ab88a','#5e8a50'],['#86a98e','#4e7458']][r.index%3],BL=[['#7a6ab0','#544a80'],['#b0605a','#80403a'],['#5a8ab0','#3e6280'],['#a08a50','#706038']][r.index%4];sleeper(ctx,Math.round(c.x),Math.round(c.y),{skin:ZS[0],hair:'#3a4a3a',blanket:BL[0],shade:BL[1]},elapsedSeconds,r.index,!!r.futon,!!r.upper);return;}zombie(ctx,c.x,c.y+7,elapsedSeconds,r.index,r.activity??'walk');
         if(r.status==='出勤中'||r.status==='帰還中'){ctx.fillStyle='#f8e8af';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.fillText(r.status==='出勤中'?'↑':'↓',c.x,c.y-30);}}});
     }
   }

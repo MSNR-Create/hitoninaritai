@@ -18,10 +18,11 @@ export const TECHS=Object.freeze([
   {id:'sleep',name:'安眠カプセル',branch:'life',tier:2,req:['impulse'],cost:90,samples:2,work:6,desc:'昼の休養回復 +8。'},
   {id:'preserve',name:'防腐保存食',branch:'life',tier:2,req:['impulse'],cost:100,samples:2,work:6,desc:'食料の仕入れ量 1回5→8個。'},
   {id:'hobby',name:'地下サークル活動',branch:'life',tier:3,req:['sleep'],cost:140,samples:3,work:8,desc:'嗜好品が足りない日の衝動悪化を半減。'},
+  {id:'netsales',name:'ネット副業（フリマ）',branch:'work',tier:1,req:[],cost:30,samples:0,work:2,desc:'地上のフリマで転売する副業を解放（手間の少ない出品設定つき）。'},
   {id:'shiftplan',name:'夜勤の段取り術',branch:'work',tier:1,req:[],cost:40,samples:1,work:3,desc:'夜勤報酬 +20%。'},
   {id:'stretch',name:'防腐ストレッチ',branch:'work',tier:2,req:['shiftplan'],cost:90,samples:2,work:6,desc:'勤務による疲労 −25%。'},
   {id:'makeup',name:'人間メイク術',branch:'work',tier:2,req:['shiftplan'],cost:120,samples:2,work:7,desc:'勤務1回の露見リスク −1。'},
-  {id:'autoprocure',name:'調達ルート確立',branch:'work',tier:2,req:['shiftplan'],cost:110,samples:1,work:5,desc:'不足物資を毎夕自動で買い出しリストに入れる（施設で作れる物は除く）。'},
+  {id:'autoprocure',name:'調達ルート確立',branch:'work',tier:2,req:['shiftplan'],cost:110,samples:1,work:5,desc:'不足する食料・資材を毎夕自動で買い出しリストに入れる（施設で作れる物は除く）。'},
   {id:'foreman',name:'現場リーダー制',branch:'work',tier:3,req:['stretch','makeup'],cost:220,samples:3,work:10,desc:'夜勤報酬 さらに +25%。'},
   {id:'research_base',name:'研究基盤Ⅰ',branch:'build',tier:1,req:[],cost:75,samples:2,work:4,desc:'研究試料抽出装置が建設可能に（試料の自給）。'},
   {id:'bunk',name:'二段ベッド設計',branch:'build',tier:1,req:[],cost:80,samples:1,work:4,desc:'共同住居1棟あたり定員 +2。'},
@@ -40,7 +41,7 @@ export const TECHS=Object.freeze([
   {id:'refrigeration',name:'低温保存技術',branch:'care',tier:2,req:['sanitation'],cost:145,samples:2,work:7,desc:'低温保存室が建設可能に。'},
   {id:'chemistry',name:'生活用薬品合成',branch:'care',tier:2,req:['sanitation','research_base'],cost:230,samples:3,work:10,desc:'薬品合成室が建設可能に。'},
   {id:'regeneration',name:'身体再生医療',branch:'care',tier:3,req:['chemistry','refrigeration'],cost:360,samples:4,work:13,desc:'身体修復室が建設可能に。'},
-  {id:'bioculture',name:'試料培養技術',branch:'care',tier:3,req:['chemistry','research_base'],cost:320,samples:4,work:13,desc:'培養研究槽が建設可能に（研究資材を増産）。'},
+  {id:'bioculture',name:'試料培養技術',branch:'care',tier:3,req:['chemistry','research_base'],cost:320,samples:4,work:13,desc:'培養研究槽が建設可能に（研究サンプルを増産）。'},
   {id:'entertainment',name:'地下の映像文化',branch:'care',tier:3,req:['leisure','hobby'],cost:220,samples:3,work:10,desc:'地下シアターが建設可能に。'},
   {id:'health_protocol',name:'衛生プロトコル',branch:'care',tier:3,req:['refrigeration','regeneration'],cost:270,samples:4,work:12,desc:'腐敗の進行を毎日−0.6。'},
   {id:'community',name:'地下自治会',branch:'care',tier:4,req:['entertainment','archives_research'],cost:370,samples:5,work:14,desc:'嗜好品不足による衝動増加をさらに半減。'},
@@ -75,7 +76,7 @@ export function startTech(colony,money,id,hasLab){
   if(st==='done')return {ok:false,reason:'研究完了済みです'};
   if(st==='locked')return {ok:false,reason:`前提研究（${t.req.map(q=>techById(q).name).join('・')}）が必要です`};
   if(researchState(colony).active)return {ok:false,reason:'別の研究が進行中です'};
-  if(money<t.cost||(colony.inventory.samples??0)<t.samples)return {ok:false,reason:`研究費${t.cost}G・研究資材${t.samples}個が必要です`};
+  if(money<t.cost||(colony.inventory.samples??0)<t.samples)return {ok:false,reason:`研究費${t.cost}G・研究サンプル${t.samples}個が必要です`};
   return {ok:true,cost:t.cost,money:money-t.cost,colony:{...colony,inventory:{...colony.inventory,samples:colony.inventory.samples-t.samples},research:{active:id,progress:0,started:true}}};
 }
 export function cancelTech(colony){return {...colony,research:{active:null,progress:0,started:false}};}
