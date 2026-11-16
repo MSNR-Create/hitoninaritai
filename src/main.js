@@ -44,7 +44,7 @@ const SURFACE_BASE={paths:new Set(worlds.surface.paths),city:[...worlds.surface.
 const POND=new Set(['27,19','28,19','29,19','27,20','28,20','29,20','30,20','28,21','29,21','26,2','27,2','26,3']);
 function applyCityLayer(){const city=CITY.ensureCity(surfaceEconomy).city,L=CITY.cityLayer(city),S=worlds.surface;
  S.cityBuildings=[...SURFACE_BASE.city,...L.buildings];S.paths=new Set([...SURFACE_BASE.paths,...L.roads]);S.park=L.park;S.devUsed=new Set([...L.used,...L.park]);
- S.water=new Set([...POND].filter(k=>!L.used.has(k)));
+ S.water=new Set([...POND].filter(k=>!L.used.has(k)));S.fog=L.fog;S.fogRegions=L.fogRegions;
  const blocked=new Set();for(const b of [...S.buildings,...S.cityBuildings])for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)blocked.add(x+','+y);
  const side=new Set();for(const r of S.paths){const [x,y]=r.split(',').map(Number);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const k=(x+dx)+','+(y+dy);if(x+dx<0||y+dy<0||x+dx>=MAP_SIZE||y+dy>=MAP_SIZE)continue;if(!S.paths.has(k)&&!blocked.has(k)&&!S.water.has(k))side.add(k);}}
  S.sidewalks=side;for(const k of side)S.devUsed.add(k);}
@@ -457,7 +457,7 @@ function updateEconomy(){updateBuildButtons();
   const capacity=colonyCapacity();
   el('populationValue').textContent=`${game.residents.length} / ${capacity}`;
   el('moneyValue').textContent=game.money;
-  el('foodValue').innerHTML=`食${colony.inventory.food}<small> ・資材${ST.goodsTotal(colony.inventory)}</small>`;
+  el('foodValue').innerHTML=`食料${colony.inventory.food}<small> ・資材${ST.goodsTotal(colony.inventory)}</small>`;
   el('moodValue').textContent=Math.max(0,moodOf(game)-Math.round(game.residents.reduce((sum,r)=>sum+(r.impulse??0),0)/Math.max(1,game.residents.length)/3));
   el('alertValue').textContent=game.alert;
   updateConstruction();updateRentalPanel();updateSurfacePanel();updateColonyPanel();updateSocialPanel();updateCityPanel();
@@ -743,7 +743,7 @@ viewport.appendChild(el('selectionPanel'));
 const sheet=document.createElement('div');sheet.id='mapSheet';sheet.className='map-sheet';sheet.hidden=true;
 const sheetHeader=document.createElement('div');sheetHeader.className='sheet-header';sheetHeader.innerHTML='<strong id="sheetTitle">メニュー</strong><button type="button" id="sheetClose" aria-label="パネルを閉じる">×</button>';
 const sheetBody=document.createElement('div');sheetBody.className='sheet-body';sheet.append(sheetHeader,sheetBody);viewport.append(sheet);
-const titles={city:'街の発展',supply:'資材・生産',jobs:'仕事と住民',build:'地下建設',research:'研究ツリー',market:'フリマ経営',social:'人間関係',settings:'設定・セーブ'};
+const titles={city:'街の発展',property:'不動産・空き地',supply:'資材・生産',jobs:'仕事と住民',build:'地下建設',research:'研究ツリー',market:'フリマ経営',social:'人間関係',settings:'設定・セーブ'};
 for(const section of [...document.querySelectorAll('.game-panel > [data-screen]')])sheetBody.append(section);
 function showPanel(id){
  const oldSheetHeight=sheet.hidden?0:sheet.getBoundingClientRect().height;
@@ -1030,3 +1030,25 @@ function drawTreeLines(){const tree=el('researchTree'),wrap=tree?.querySelector(
 for(const ev of ['pointerdown','keydown'])window.addEventListener(ev,()=>{unlockAudio();setMusic(colony.gameOver?null:(game.tick%120)>=60?'night':'day');},{capture:true});
 {const m=el('audioMute'),b=el('bgmVol'),f=el('sfxVol');if(m&&b&&f){b.value=audioPrefs.bgm;f.value=audioPrefs.sfx;const sync=()=>{m.textContent=audioPrefs.muted?'🔇 ミュート中':'🔊 音あり';};sync();
  m.addEventListener('click',()=>{setAudio({muted:!audioPrefs.muted});sync();});b.addEventListener('input',()=>setAudio({bgm:+b.value}));f.addEventListener('input',()=>{setAudio({sfx:+f.value});sfx('coin');});}}
+
+// ===== v3.6: ◀ ▶ navigation inside detail dialogs, and the real-estate list =====
+let dlgNav=null;
+function setDialogNav(ids,current,open){const nav=el('dlgNav');if(!ids||ids.length<2){nav.hidden=true;dlgNav=null;return;}dlgNav={ids,open};const i=ids.indexOf(current);nav.hidden=false;el('dlgPos').textContent=`${i+1} / ${ids.length}`;}
+const dlgStep=d=>{if(!dlgNav)return;const cur=el('propertyDialog').dataset.navId;const i=dlgNav.ids.indexOf(cur);const n=dlgNav.ids[(i+d+dlgNav.ids.length)%dlgNav.ids.length];dlgNav.open(n);};
+el('dlgPrev').addEventListener('click',()=>dlgStep(-1));el('dlgNext').addEventListener('click',()=>dlgStep(1));
+el('propertyDialog').addEventListener('close',()=>{el('dlgNav').hidden=true;dlgNav=null;});
+{const oc=openColonist;openColonist=function(id){oc(id);const ids=game.residents.map(r=>String(r.id));el('propertyDialog').dataset.navId=String(id);setDialogNav(ids,String(id),x=>openColonist(Number(x)));};}
+{const ob=openBuilding;openBuilding=function(id){ob(id);const ids=worlds.underground.buildings.map(b=>b.id);el('propertyDialog').dataset.navId=id;setDialogNav(ids,id,x=>openBuilding(x));};}
+{const op=openPropertyDialog;openPropertyDialog=function(tile){op(tile);const p=selectProperty(RENTALS,tile.x,tile.y);if(!p)return;el('propertyDialog').dataset.navId=p.id;setDialogNav(RENTALS.map(r=>r.id),p.id,id=>{const r=RENTALS.find(q=>q.id===id);openPropertyDialog({x:r.x,y:r.y});});};}
+function renderPropertyList(){const host=el('propertyList');if(!host)return;const sig=JSON.stringify([owned,rented,surfaceEconomy.last?.day,Object.keys(CITY.ensureCity(surfaceEconomy).city.lots).length]);if(host.dataset.sig===sig)return;host.dataset.sig=sig;host.replaceChildren();
+ const items=surfaceEconomy.last?.items??[];
+ const head=document.createElement('div');head.className='pl-row pl-head';head.innerHTML='<span>物件</span><span>状態</span><span>前日収支</span><span>家賃／相場</span>';host.append(head);
+ for(const p of RENTALS){const st=owned.includes(p.id)?'🏠 所有':rented.includes(p.id)?'📝 賃借中':'— 未契約';const it=items.find(i=>i.id===p.id);const row=document.createElement('button');row.type='button';row.className='pl-row'+(owned.includes(p.id)||rented.includes(p.id)?' mine':'');
+  row.innerHTML=`<span>${PROPERTY_ROLES[p.id]?.name??p.name}<small>${propertyLocation(p.id)?.grade??''}</small></span><span>${st}</span><span>${it?(it.net>=0?'+':'')+it.net+'G':'—'}</span><span>${p.rent}G/日・${propertyValue(p.id,surfaceEconomy)}G</span>`;
+  row.addEventListener('click',()=>openPropertyDialog({x:p.x,y:p.y}));host.append(row);}
+ const city=CITY.ensureCity(surfaceEconomy).city;const h2=document.createElement('div');h2.className='pl-row pl-head';h2.innerHTML='<span>空き地</span><span>街区</span><span>設備</span><span></span>';host.append(h2);
+ for(const l of CITY.LOTS){const st=city.lots[l.id]??{};const open=CITY.lotOpen(city,l);const row=document.createElement('button');row.type='button';row.className='pl-row'+(st.leased?' mine':'');
+  row.innerHTML=`<span>空き地 ${l.id.slice(-1).toUpperCase()}</span><span>${open?'':'🔒 '}${CITY.DISTRICTS.find(d=>d.id===l.district)?.name??''}</span><span>${st.facility?CITY.LOT_FACILITIES[st.facility].icon+' '+CITY.LOT_FACILITIES[st.facility].name:st.leased?'借用中':'—'}</span><span></span>`;
+  row.addEventListener('click',()=>openLotDialog(l));host.append(row);}}
+setInterval(renderPropertyList,1500);renderPropertyList();
+{const ol=openLotDialog;openLotDialog=function(l){ol(l);el('dlgNav').hidden=true;dlgNav=null;};}

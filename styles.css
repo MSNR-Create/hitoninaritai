@@ -318,3 +318,6 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 @media(min-width:641px){.resident-row{grid-template-columns:minmax(240px,1fr) auto auto auto!important}}
 .rbars u{min-width:26px}
 .invest-btn{margin-top:6px;width:100%;padding:9px;border-radius:9px;border:1px solid #c9a46a;background:#6a4a2a;color:#f8e9b0;font-weight:700}.invest-btn:disabled{opacity:.55}
+.dlg-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-4px 0 6px}.dlg-nav button{width:44px;height:34px;border-radius:9px;border:1px solid #6d8f86;background:#2a4a52;color:#fff;font-size:15px}.dlg-nav span{font-size:11px;color:#b8cfc8}
+.property-list{display:grid;gap:3px;margin:8px 0}.pl-row{display:grid;grid-template-columns:1.4fr 1fr .9fr 1.3fr;gap:6px;align-items:center;text-align:left;padding:6px 8px;border-radius:8px;border:1px solid #33505b;background:#18323b;color:#e8f1ee;font-size:11px}
+.pl-row small{display:block;font-size:9px;color:#9fb6bb}.pl-row.mine{border-color:#a5cdaa;background:#1e3e36}.pl-head{background:none;border:none;color:#9fd3c7;font-weight:700;padding:2px 8px}

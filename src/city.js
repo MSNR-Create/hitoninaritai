@@ -22,13 +22,16 @@ export const DISTRICT_FEATURES={
  business:{roads:[...R(24,24,31,25)],buildings:[{kind:'office',x:25,y:26,w:3,h:3,name:'オフィスタワー'},{kind:'office',x:29,y:26,w:3,h:3,name:'金融ビル'},{kind:'office',x:25,y:29,w:3,h:3,name:'IT企業ビル'}]},
  metropolis:{roads:[],buildings:[{kind:'hotel',x:29,y:29,w:3,h:3,name:'グランドホテル'},{kind:'mall',x:0,y:28,w:4,h:4,name:'駅前百貨店'},{kind:'office',x:24,y:0,w:4,h:3,name:'ランドマークタワー'}]}
 };
+// v3.6: each district owns a region of the outer ring; until it is developed the region is hidden under fog.
+export const DISTRICT_REGIONS={commerce:[24,0,31,9],logistics:[24,10,31,16],parkland:[24,17,31,23],residential:[0,24,15,31],station:[16,24,23,31],business:[24,24,31,31]};
 /** Surface additions for the developed districts: roads, buildings, park; plus wilderness tiles still untouched. */
 export function cityLayer(city){
  const roads=new Set(),buildings=[],park=new Set(),used=new Set();
  for(const d of DISTRICTS){if(!city.districts.includes(d.id))continue;const f=DISTRICT_FEATURES[d.id];if(!f)continue;
   for(const [x,y] of f.roads??[]){roads.add(x+','+y);used.add(x+','+y);}for(const [x,y] of f.park??[])park.add(x+','+y);
   f.buildings.forEach((b,i)=>{buildings.push({id:`dist-${d.id}-${i}`,...b});for(let x=b.x;x<b.x+b.w;x++)for(let y=b.y;y<b.y+b.h;y++)used.add(x+','+y);});}
- return {roads,buildings,park,used};}
+ const fog=new Set(),fogRegions=[];for(const [id,[x0,y0,x1,y1]] of Object.entries(DISTRICT_REGIONS)){if(city.districts.includes(id))continue;const d=DISTRICTS.find(q=>q.id===id);fogRegions.push({id,name:d.name,x:(x0+x1)/2,y:(y0+y1)/2,ready:city.ready===id});for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)fog.add(x+','+y);}
+ return {roads,buildings,park,used,fog,fogRegions};}
 
 export const LOTS=Object.freeze([
  {id:'lot-a',x:3,y:0,w:2,h:2,district:'old_town'},{id:'lot-b',x:21,y:0,w:2,h:2,district:'old_town'},

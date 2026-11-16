@@ -18,7 +18,7 @@ export function createCityInfrastructure(buildings=[]){
  return {roads,sidewalks};
 }
 export function streetTileKind(world,x,y){
- const p=key(x,y);if(world.paths?.has(p))return 'road';if(world.sidewalks?.has(p))return 'sidewalk';if(world.water?.has(p))return 'water';if(world.park?.has(p))return 'park';if((x>=CORE||y>=CORE)&&!world.devUsed?.has(p))return 'wild';return 'lot';
+ const p=key(x,y);if(world.paths?.has(p))return 'road';if(world.sidewalks?.has(p))return 'sidewalk';if(world.fog?.has(p))return 'fog';if(world.water?.has(p))return 'water';if(world.park?.has(p))return 'park';if((x>=CORE||y>=CORE)&&!world.devUsed?.has(p))return 'wild';return 'lot';
 }
 // Animated vehicles occupy designated carriageways. They never cross building footprints.
 export function vehiclesAt(seconds,humans=34,trust=55){

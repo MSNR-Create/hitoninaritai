@@ -202,7 +202,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       const {x:wx,y:wy}=tileCenter(x,y,view.rotation??0), k=`${x},${y}`;
       const closed=world.closed.has(k), path=world.paths.has(k), accent=world.accents.has(k);
       const tileKind=world.id==='surface'?streetTileKind(world,x,y):'underground';
-      let floor=world.id==='surface'?(tileKind==='road'?'#8e9298':tileKind==='sidewalk'?'#e2d3b0':tileKind==='water'?'#4a8ac8':tileKind==='wild'?((x*7+y*3)%5?'#5f9450':'#6aa05a'):tileKind==='park'?'#8cc878':accent?'#9bd27a':((x+y)%2?p.ground1:p.ground2)):closed?p.closed:path?p.path:accent?'#8c7660':((x+y)%2?p.ground1:p.ground2);
+      let floor=world.id==='surface'?(tileKind==='road'?'#8e9298':tileKind==='sidewalk'?'#e2d3b0':tileKind==='fog'?((x+y)%2?'#8a96a4':'#929eac'):tileKind==='water'?'#4a8ac8':tileKind==='wild'?((x*7+y*3)%5?'#5f9450':'#6aa05a'):tileKind==='park'?'#8cc878':accent?'#9bd27a':((x+y)%2?p.ground1:p.ground2)):closed?p.closed:path?p.path:accent?'#8c7660':((x+y)%2?p.ground1:p.ground2);
       const lotHere=world.id==='surface'&&world.lotDefs?.some(l=>x>=l.x&&x<l.x+l.w&&y>=l.y&&y<l.y+l.h);
       if(lotHere)floor=(world.lotOpen?.(x,y)?'#c8a87a':'#9a8a70');
       const style=world.id==='surface'?(tileKind==='road'?'stripe':tileKind==='sidewalk'?'brick':'noise'):closed?'rubble':path?'slab':'noise';
@@ -210,6 +210,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
       if(!drawTile(ctx,wx,wy,texBase,style,Math.floor(tileHash(x,y)*4)))diamond(ctx,wx,wy,floor,null);
       ctx.globalAlpha=.35;diamond(ctx,wx,wy,null,world.id==='surface'&&tileKind==='road'?null:p.seam);ctx.globalAlpha=1;
       if(world.showRange?.has(k)&&!closed){ctx.globalAlpha=.16;diamond(ctx,wx,wy,'#8af0a0',null);ctx.globalAlpha=1;}
+      if(tileKind==='fog'){const ph=elapsedSeconds*.3+x*.7+y*.4;ctx.fillStyle=`rgba(235,240,248,${.35+Math.sin(ph)*.12})`;ctx.beginPath();ctx.ellipse(wx+Math.sin(ph)*6,wy-6,20,7,0,0,7);ctx.fill();}
       if(tileKind==='water'){const sh=(Math.sin(elapsedSeconds*1.5+x*.9+y*1.3)+1)/2;ctx.fillStyle=`rgba(220,240,255,${.15+sh*.25})`;ctx.fillRect(Math.round(wx-10+sh*6),Math.round(wy-2),8,1);ctx.fillRect(Math.round(wx+2-sh*4),Math.round(wy+4),6,1);}
       if(world.id==='surface'&&tileKind==='road'){
         const vertical=[8,9,15,16].includes(x) && ![8,9,15,16].includes(y), horizontal=[8,9,15,16].includes(y) && ![8,9,15,16].includes(x);
@@ -262,6 +263,7 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
   for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){const k=x+','+y;if(occupied.has(k))continue;const h=tileHash(x*3+1,y*5+2);let name=null;
     if(world.id==='surface'){const kind=streetTileKind(world,x,y);
       if(kind==='lot')name=h<.16?'tree':h<.24?'flowers':h<.3?'bush':h<.32?'bench':null;
+      else if(kind==='fog')name=null;
       else if(kind==='wild')name=h<.42?'tree':h<.6?'bush':h<.7?'flowers':null;
       else if(kind==='park')name=h<.2?'tree':h<.36?'flowers':h<.42?'bench':h<.46?'lamp':null;
       else if(kind==='sidewalk'&&(x*7+y*3)%9===0)name='lamp';}
@@ -276,6 +278,8 @@ export function drawScene(ctx, world, view, selected, elapsedSeconds, renderSize
     list.push({depth:999,sub:9,draw:ctx=>{const txt=`${next?'⛏️':'🔒'} ${z.name}  ${cost}G`;ctx.font='bold 12px system-ui';const w=ctx.measureText?.(txt)?.width??120;
       const x=Math.round(pt.x-w/2-8),y=Math.round(pt.y-30);ctx.globalAlpha=next?1:.55;ctx.fillStyle='#1a120c';ctx.fillRect(x-1,y-1,w+18,22);ctx.fillStyle=next?'#6a4a2a':'#3a3230';ctx.fillRect(x,y,w+16,20);ctx.fillStyle=next?'#c99a62':'#5a504a';ctx.fillRect(x,y,w+16,2);
       ctx.fillStyle=next?'#f8e9b0':'#c8c0b8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,pt.x,y+11);ctx.globalAlpha=1;}});}
+  if(world.id==='surface')for(const f of world.fogRegions??[]){const pt=projectedTile(f.x,f.y,rot);list.push({depth:998,sub:9,draw:ctx=>{const txt=`${f.ready?'🏗️':'🔒'} ${f.name}（${f.ready?'出資で開発できます':'未開発'}）`;ctx.font='bold 12px system-ui';const w=ctx.measureText?.(txt)?.width??140;const x=Math.round(pt.x-w/2-8),y=Math.round(pt.y-40);
+   ctx.fillStyle='#1a2430';ctx.fillRect(x-1,y-1,w+18,22);ctx.fillStyle=f.ready?'#6a4a2a':'#3a4a5a';ctx.fillRect(x,y,w+16,20);ctx.fillStyle='#f0f4f8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,pt.x,y+11);}});}
   const bubbles=[];
   if(world.id==='surface'){
     const night=game?((game.tick%120)>=60):false;
