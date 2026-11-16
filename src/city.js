@@ -14,16 +14,16 @@ export const DISTRICTS=Object.freeze([
 // wilderness (forest/meadow/pond) until a district develops it; roads are not limited to the grid.
 const R=(x0,y0,x1,y1)=>{const a=[];for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)a.push([x,y]);return a;};
 export const DISTRICT_FEATURES={
- commerce:{roads:[...R(24,8,31,9)],buildings:[{kind:'mall',x:25,y:3,w:4,h:4,name:'ショッピングモール'},{kind:'market',x:29,y:4,w:3,h:3,name:'専門店'}]},
- residential:{roads:[...R(8,24,9,26),...R(10,26,11,27),...R(12,27,13,28),...R(14,28,15,29)],buildings:[{kind:'humanHome',x:2,y:25,w:3,h:3,name:'丘の住宅'},{kind:'humanHome',x:5,y:28,w:3,h:3,name:'丘の住宅'},{kind:'school',x:10,y:29,w:4,h:3,name:'小学校'}]},
- logistics:{roads:[...R(26,10,27,16)],buildings:[{kind:'warehouse',x:28,y:11,w:4,h:4,name:'物流センター'},{kind:'warehouse',x:24,y:11,w:2,h:3,name:'搬入倉庫'}]},
- parkland:{park:[...R(24,17,31,23)],buildings:[]},
- station:{roads:[...R(16,24,17,31),...R(18,24,23,25)],buildings:[{kind:'station',x:18,y:27,w:5,h:3,name:'新駅'},{kind:'cafe',x:18,y:30,w:3,h:2,name:'駅ナカカフェ'}]},
- business:{roads:[...R(24,24,31,25)],buildings:[{kind:'office',x:25,y:26,w:3,h:3,name:'オフィスタワー'},{kind:'office',x:29,y:26,w:3,h:3,name:'金融ビル'},{kind:'office',x:25,y:29,w:3,h:3,name:'IT企業ビル'}]},
- metropolis:{roads:[],buildings:[{kind:'hotel',x:29,y:29,w:3,h:3,name:'グランドホテル'},{kind:'mall',x:0,y:28,w:4,h:4,name:'駅前百貨店'},{kind:'office',x:24,y:0,w:4,h:3,name:'ランドマークタワー'}]}
+ commerce:{roads:[...R(24,8,35,9)],buildings:[{kind:'mall',x:25,y:3,w:4,h:4,name:'ショッピングモール'},{kind:'market',x:29,y:4,w:3,h:3,name:'専門店'},{kind:'cafe',x:33,y:4,w:3,h:3,name:'喫茶店'}]},
+ residential:{roads:[...R(8,24,9,26),...R(10,26,11,27),...R(12,27,13,28),...R(14,28,15,29),...R(2,32,13,33)],buildings:[{kind:'humanHome',x:2,y:25,w:3,h:3,name:'丘の住宅'},{kind:'humanHome',x:5,y:28,w:3,h:3,name:'丘の住宅'},{kind:'school',x:10,y:29,w:4,h:3,name:'小学校'},{kind:'humanHome',x:4,y:34,w:3,h:2,name:'新築の家'},{kind:'humanHome',x:9,y:34,w:3,h:2,name:'新築の家'}]},
+ logistics:{roads:[...R(26,10,27,16)],buildings:[{kind:'warehouse',x:28,y:11,w:4,h:4,name:'物流センター'},{kind:'warehouse',x:24,y:11,w:2,h:3,name:'搬入倉庫'},{kind:'warehouse',x:33,y:11,w:3,h:4,name:'冷凍倉庫'}]},
+ parkland:{park:[...R(24,17,35,23)],buildings:[]},
+ station:{roads:[...R(16,24,17,35),...R(18,24,23,25)],buildings:[{kind:'station',x:18,y:27,w:5,h:3,name:'新駅'},{kind:'cafe',x:18,y:30,w:3,h:2,name:'駅ナカカフェ'}]},
+ business:{roads:[...R(24,24,35,25),...R(28,26,28,35)],buildings:[{kind:'office',x:25,y:26,w:3,h:3,name:'オフィスタワー'},{kind:'office',x:29,y:26,w:3,h:3,name:'金融ビル'},{kind:'office',x:25,y:29,w:3,h:3,name:'IT企業ビル'},{kind:'office',x:33,y:26,w:3,h:3,name:'商社ビル'}]},
+ metropolis:{roads:[],buildings:[{kind:'hotel',x:29,y:29,w:3,h:3,name:'グランドホテル'},{kind:'mall',x:0,y:28,w:4,h:4,name:'駅前百貨店'},{kind:'office',x:24,y:0,w:4,h:3,name:'ランドマークタワー'},{kind:'hotel',x:32,y:32,w:4,h:4,name:'展望タワーホテル'},{kind:'station',x:18,y:32,w:5,h:3,name:'地下鉄駅'}]}
 };
 // v3.6: each district owns a region of the outer ring; until it is developed the region is hidden under fog.
-export const DISTRICT_REGIONS={commerce:[24,0,31,9],logistics:[24,10,31,16],parkland:[24,17,31,23],residential:[0,24,15,31],station:[16,24,23,31],business:[24,24,31,31]};
+export const DISTRICT_REGIONS={commerce:[24,0,35,9],logistics:[24,10,35,16],parkland:[24,17,35,23],residential:[0,24,15,35],station:[16,24,23,35],business:[24,24,35,35]};
 /** Surface additions for the developed districts: roads, buildings, park; plus wilderness tiles still untouched. */
 export function cityLayer(city){
  const roads=new Set(),buildings=[],park=new Set(),used=new Set();

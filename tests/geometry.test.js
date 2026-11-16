@@ -28,5 +28,5 @@ test('surface and underground worlds are separate and have map bounds',()=>{
  assert.equal(buildingAt(worlds.surface,4,5).name,'人間の住宅');
  assert.equal(describeTile(worlds.underground,0,0).type,'閉鎖');
  assert.equal(describeTile(worlds.underground,8,8).type,'通路');
- assert.equal(describeTile(worlds.underground,32,0),null);
+ assert.equal(describeTile(worlds.underground,36,0),null);
 });

@@ -8,9 +8,9 @@ function fillRectangle(set, x0, y0, x1, y1) {
 function tileSet(points) { return new Set(points.map(([x,y]) => coords(x,y))); }
 
 export const OUTER_ZONES=Object.freeze([
-  {id:'far_east',name:'東の岩盤',x:24,y:0,w:8,h:12,cost:300},{id:'far_east2',name:'東の地底湖',x:24,y:12,w:8,h:10,cost:340},
-  {id:'far_south',name:'南の岩盤',x:0,y:24,w:12,h:8,cost:300},{id:'far_south2',name:'南の旧坑道',x:12,y:24,w:12,h:8,cost:340},
-  {id:'abyss',name:'最深部',x:24,y:22,w:8,h:10,cost:420}]);
+  {id:'far_east',name:'東の岩盤',x:24,y:0,w:12,h:12,cost:300},{id:'far_east2',name:'東の地底湖',x:24,y:12,w:12,h:10,cost:340},
+  {id:'far_south',name:'南の岩盤',x:0,y:24,w:12,h:12,cost:300},{id:'far_south2',name:'南の旧坑道',x:12,y:24,w:12,h:12,cost:340},
+  {id:'abyss',name:'最深部',x:24,y:22,w:12,h:14,cost:420}]);
 export function makeWorlds() {
   const closed = new Set();
   // v3.5: the map is 32×32 — everything beyond the original 24×24 is solid rock to dig outward into.
