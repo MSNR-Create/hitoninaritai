@@ -42,10 +42,10 @@ export function workEfficiency(r,job){
  if(job==='warehouse')m*=1+.04*((s.dex??2)-2)+(hasTrait(r,'strong')?.15:0)-(hasTrait(r,'clumsy')?.12:0);
  return Math.round(m*100)/100;
 }
-export function researchPower(r){return Math.round((1+.05*((r.stats?.int??2)-2)+(hasTrait(r,'scholar')?.15:0))*decayStage(r.decay??0).eff*100)/100;}
+export function researchPower(r){return Math.round((1.2+.15*((r.stats?.int??2)-2)+.05*((r.level??1)-1)+(hasTrait(r,'scholar')?.2:0))*decayStage(r.decay??0).eff*100)/100;}
 export const OUTSIDE=new Set(['clean','warehouse','forage','salvage','konbini','delivery','guard','labassist','shopping']);
 /** Can this resident safely take an outside job tonight? */
-export function canGoOutside(r){return (r.decay??0)<85&&odorOf(r)<70;}
+export function canGoOutside(r){return (r.decay??0)<90&&odorOf(r)<75;}
 export function levelOf(xp){let l=1;for(let i=0;i<LEVEL_XP.length;i++)if(xp>=LEVEL_XP[i])l=i+1;return Math.min(10,l);}
 export function allocate(r,stat){if(!(r.sp>0))return {ok:false,reason:'スキルポイントがありません'};if(!STATS[stat])return {ok:false,reason:'不明な能力'};if(r.stats[stat]>=10)return {ok:false,reason:'この能力は上限10です'};
  return {ok:true,resident:{...r,sp:r.sp-1,stats:{...r.stats,[stat]:r.stats[stat]+1}}};}
@@ -61,7 +61,8 @@ export function dailyColonists(residents,{washSlots=0,care=0,decayRelief=0}={}){
   // decay
   const resist=Math.min(.4,.04*(r.stats.res-2));const traitMul=(hasTrait(r,'resilient')?.8:1)*(hasTrait(r,'fragile')?1.15:1);
   const load=job==='warehouse'?1.5:OUTSIDE.has(job)?.5:0;
-  const inc=Math.max(0,Math.min(10,2*(1-resist)*traitMul+load-decayRelief));
+  // v3.8: resting at home slows decay (cool, dark, still)
+  const inc=Math.max(0,Math.min(10,2*(1-resist)*traitMul*(job==='rest'?.5:1)+load-decayRelief));
   r.decay=Math.round(Math.min(100,r.decay+inc)*10)/10;r.fresh=Math.max(0,(r.fresh??0)-6);
   // odor → alert, only for residents who went outside
   if(OUTSIDE.has(job)){const o=odorOf(r);alertAdd+=o>=70?4:o>=50?1.5:o>=35?.5:0;}

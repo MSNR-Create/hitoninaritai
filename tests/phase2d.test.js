@@ -9,7 +9,7 @@ test('automatic choices prioritize shortage and exhaustion',()=>{
  assert.ok(['clean','warehouse','forage','rest'].includes(chooseAutoJob(g.residents[0],g)));
 });
 test('max exhaustion triggers extended strike, not immediate work next morning',()=>{
- let g=initialGame();g.residents[0].fatigue=80;g=assignJob(g,1,'warehouse');
+ let g=initialGame();g.residents[0].fatigue=88;g=assignJob(g,1,'warehouse');
  g=night(g);assert.equal(g.residents[0].strikeDays,2);
  for(let i=0;i<60;i++)g=stepGame(g);
  assert.equal(g.residents[0].activeJob,'rest');assert.ok(g.residents[0].strikeDays>0);

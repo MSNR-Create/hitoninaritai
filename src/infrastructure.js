@@ -3,8 +3,8 @@ import { FACILITY_DEFS } from './catalog.js';
 const conn=(w,b)=>w.connectivity?.[b.id]??true;
 /** Daily upkeep in G. Every facility costs something; each additional lab costs more than the last. */
 export function upkeepOf(b,labIndex=0){
- if(b.kind==='exit')return 0;if(b.kind==='lab')return 6+labIndex*labIndex*4;
- const f=FACILITY_DEFS[b.kind];return Math.max(1,Math.round((f?.cost??60)*.03))*(b.level??1);}
+ if(b.kind==='exit')return 0;if(b.kind==='lab')return 4+labIndex*labIndex*3;
+ const f=FACILITY_DEFS[b.kind];return Math.max(1,Math.round((f?.cost??60)*.015))*(b.level??1);}
 export const POWER_USE=Object.freeze({farm:2,culture:2,cooler:2,repair:1,automation:3,security:1,theater:2,lab:1,extractor:1,chemical:1,gate:1});
 export const BASE_POWER=3; // scavenged car batteries
 /** Settles one day: upkeep, power supply/demand (generators burn 1 fuel each), unpowered buildings. */

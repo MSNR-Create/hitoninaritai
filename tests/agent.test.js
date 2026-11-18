@@ -19,7 +19,7 @@ test('resting agent stays underground throughout night',()=>{
 test('job updates after shift start do not alter active payout',()=>{
  let s=advance(initialGame(),60);const active=s.residents[0].activeJob;
  s=assignJob(s,1,'rest');assert.equal(s.residents[0].activeJob,active);
- s=advance(s,60);assert.equal(s.lastReport.income,96);
+ s=advance(s,60);assert.equal(s.lastReport.income,120);
 });
 test('visual projection does not mutate simulation and is repeatable',()=>{
  const s=advance(initialGame(),72),before=JSON.stringify(s);

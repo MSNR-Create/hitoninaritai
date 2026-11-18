@@ -3,12 +3,12 @@ import { workEfficiency, canGoOutside, hasTrait, OUTSIDE } from './colonists.js'
 // v2.4 part-time jobs: pay shown as hourly wage × shift hours; some unlock by level / stats.
 export const SHIFT_HOURS=6;
 export const JOBS=Object.freeze({
-  clean:{name:'夜間清掃',icon:'🧹',wage:3,pay:18,food:0,fatigue:15,exposure:1},
-  warehouse:{name:'倉庫整理',icon:'📦',wage:5,pay:30,food:0,fatigue:27,exposure:3,req:{stats:{str:3}}},
-  konbini:{name:'コンビニ深夜',icon:'🏪',wage:6,pay:36,food:0,fatigue:18,exposure:3,req:{level:2,stats:{soc:3}}},
-  delivery:{name:'配送仕分け',icon:'🚚',wage:7,pay:42,food:0,fatigue:24,exposure:2,req:{level:3,stats:{dex:4}}},
-  guard:{name:'夜間警備',icon:'🔦',wage:8,pay:48,food:0,fatigue:14,exposure:2,req:{level:4,stats:{str:3,res:4}}},
-  labassist:{name:'研究所の夜間補助',icon:'🧑‍🔬',wage:10,pay:60,food:0,fatigue:10,exposure:1,req:{level:5,stats:{int:5}}},
+  clean:{name:'夜間清掃',icon:'🧹',wage:4,pay:24,food:0,fatigue:15,exposure:1},
+  warehouse:{name:'倉庫整理',icon:'📦',wage:6,pay:36,food:0,fatigue:27,exposure:3,req:{stats:{str:3}}},
+  konbini:{name:'コンビニ深夜',icon:'🏪',wage:7,pay:42,food:0,fatigue:18,exposure:3,req:{level:2,stats:{soc:3}}},
+  delivery:{name:'配送仕分け',icon:'🚚',wage:8,pay:48,food:0,fatigue:24,exposure:2,req:{level:3,stats:{dex:4}}},
+  guard:{name:'夜間警備',icon:'🔦',wage:9,pay:54,food:0,fatigue:14,exposure:2,req:{level:4,stats:{str:3,res:4}}},
+  labassist:{name:'研究所の夜間補助',icon:'🧑‍🔬',wage:11,pay:66,food:0,fatigue:10,exposure:1,req:{level:5,stats:{int:5}}},
   forage:{name:'食料調達',icon:'🍎',pay:0,food:5,fatigue:18,exposure:2},
   salvage:{name:'夜間回収',icon:'🗑️',pay:0,food:0,fatigue:10,exposure:1,salvage:2},
   shopping:{name:'買い出し',icon:'🛒',pay:0,food:0,fatigue:8,exposure:1,shopping:1},
@@ -25,7 +25,7 @@ export function jobReqText(id){const req=JOBS[id]?.req;if(!req)return '';return 
 export const PAID_JOBS=['labassist','guard','delivery','konbini','warehouse','clean'];
 export const clamp100=n=>Math.max(0,Math.min(100,n));
 const initResidents=[['モグ','clean'],['ロロ','warehouse'],['ネム','forage'],['ミミ','clean'],['シャチク','warehouse']];
-export function initialGame(){return {tick:0,day:1,money:300,food:12,alert:15,lastReport:null,events:[],residents:initResidents.map(([name,job],i)=>({id:i+1,name,job,activeJob:'rest',fatigue:i===4?40:20,impulse:12,previousImpulse:12,action:'休息中',strikeDays:0,wellDays:0,relationship:0}))};}
+export function initialGame(){return {tick:0,day:1,money:400,food:12,alert:15,lastReport:null,events:[],residents:initResidents.map(([name,job],i)=>({id:i+1,name,job,activeJob:'rest',fatigue:i===4?40:20,impulse:12,previousImpulse:12,action:'休息中',strikeDays:0,wellDays:0,relationship:0}))};}
 // Deterministic AI priority: survival > communal shortages > safe income.
 export function chooseAutoJob(resident,state){
  if(resident.strikeDays>0 || resident.fatigue>=65 || resident.impulse>=70)return 'rest';
@@ -63,12 +63,15 @@ export function stepGame(old){
   if(clock===80)for(const r of s.residents)if(r.activeJob!=='rest')r.action=r.activeJob==='forage'?'食料調達中':'外部勤務中';
   if(clock===112)for(const r of s.residents)if(r.activeJob!=='rest')r.action='帰還中';
   if(clock===0){
-    let income=0,harvest=0,exposure=0,salvage=0,shoppers=0;
+    let income=0,harvest=0,exposure=0,salvage=0,shoppers=0,paidIdx=0,shortShift=0;
+    // v3.8: the town only has so many part-time shifts (grows with the human population); extra workers get short shifts.
+    const slots=s.townJobs??99;
     for(const r of s.residents){
       const job=JOBS[r.activeJob];
       const m=s.mods??{};
-      const eff=r.level?workEfficiency(r,r.activeJob):1;
-      income+=Math.round(job.pay*(m.payMul??1)*eff);harvest+=job.food;salvage+=job.salvage??0;shoppers+=job.shopping??0;
+      let eff=r.level?workEfficiency(r,r.activeJob):1;
+      if(job.pay>0){if(paidIdx>=slots){eff*=.35;shortShift++;}paidIdx++;}
+      income+=Math.round(job.pay*(m.payMul??1)*eff*(1+.07*Math.max(0,(r.level??1)-1)));harvest+=job.food;salvage+=job.salvage??0;shoppers+=job.shopping??0;
       exposure+=job.exposure>0?Math.max(0,job.exposure-(m.exposureCut??0)-(hasTrait(r,'friendly')?1:0)):0;
       const traitFat=job.fatigue>0&&OUTSIDE.has(r.activeJob)?(hasTrait(r,'nocturnal')?.85:1)*(hasTrait(r,'timid')?1.1:1):1;
       r.fatigue=clamp100(r.fatigue+(job.fatigue>0?Math.round(job.fatigue*(m.fatigueMul??1)*traitFat):job.fatigue));
@@ -84,12 +87,12 @@ export function stepGame(old){
     // and spikes with incidents instead of pinning at 0 or 100.
     {const base=Math.max(0,6+exposure*2.2);const noise=(((s.day*2654435761)>>>0)%9)-3;
      s.alert=clamp100(Math.round(s.alert+(base-s.alert)*.22+noise-((s.mods??{}).alertDecay??0)));}
-    s.lastReport={day:s.day,income,harvest,salvage,shoppers,eaten,exposure,food:s.food,money:s.money};
+    s.lastReport={shortShift,townJobs:slots,day:s.day,income,harvest,salvage,shoppers,eaten,exposure,food:s.food,money:s.money};
     s.events.push(`第${s.day}日 朝：収入+${income}G、調達+${harvest}、調達品は共同倉庫へ`);
     s.day++;
   }
   if(clock===13)for(const r of s.residents)r.action=r.strikeDays>0?'ストライキ中':'休息中';
-  if(clock===43){for(const r of s.residents){r.fatigue=clamp100(r.fatigue-(r.strikeDays>0?16:12)-((s.mods??{}).restBonus??0));r.action=r.strikeDays>0?'ストライキ中':'地下で生活';}}
+  if(clock===43){for(const r of s.residents){r.fatigue=clamp100(r.fatigue-(r.strikeDays>0?18:15)-((s.mods??{}).restBonus??0));r.action=r.strikeDays>0?'ストライキ中':'地下で生活';}}
   return s;
 }
 export function assignJob(state,id,job){

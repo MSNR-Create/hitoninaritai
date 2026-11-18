@@ -2,13 +2,13 @@
 // (ZDL-SD-020 §7) and player-usable vacant lots (空き地) on the surface.
 export const DISTRICTS=Object.freeze([
  {id:'old_town',name:'旧市街',need:null,invest:0,housing:55,desc:'最初からある街。空き地4区画。'},
- {id:'commerce',name:'商業通り',need:{pop:45,prosperity:50,trust:45,alertBelow:70},invest:400,housing:35,desc:'東へ大通りが延び、ショッピングモールが開業。空き地+1・自販機が設置可能に。'},
- {id:'residential',name:'住宅新街区',need:{pop:75,prosperity:58,trust:52,alertBelow:65},invest:650,housing:60,desc:'南の丘に曲がりくねった坂道と新しい住宅地。空き地+1・家庭菜園が設置可能に。'},
- {id:'logistics',name:'物流街区',need:{pop:110,prosperity:62,trust:55,alertBelow:60},invest:900,housing:70,desc:'東に物流センターと搬入路。空き地+1・光回線が引けるように。'},
- {id:'parkland',name:'公園緑地',need:{pop:140,prosperity:65,trust:60,alertBelow:55},invest:1200,housing:60,desc:'森と池を残した大きな公園。人間の信頼が上がりやすくなる。'},
- {id:'station',name:'駅前再開発',need:{pop:180,prosperity:70,trust:62,alertBelow:55},invest:1800,housing:90,desc:'南に新駅とロータリー。来客と人口が大きく伸びる。'},
- {id:'business',name:'高層ビジネス街',need:{pop:230,prosperity:75,trust:65,alertBelow:50},invest:2600,housing:110,desc:'南東に高層オフィス群。地上事業の売上が伸びる。'},
- {id:'metropolis',name:'大都市',need:{pop:300,prosperity:82,trust:70,alertBelow:45},invest:4000,housing:160,desc:'ホテルとタワーが並ぶ大都市に。街の最終段階。'}
+ {id:'commerce',name:'商業通り',need:{pop:45,prosperity:50,trust:45,alertBelow:70},invest:300,housing:35,desc:'東へ大通りが延び、ショッピングモールが開業。空き地+1・自販機が設置可能に。'},
+ {id:'residential',name:'住宅新街区',need:{pop:75,prosperity:58,trust:52,alertBelow:65},invest:500,housing:60,desc:'南の丘に曲がりくねった坂道と新しい住宅地。空き地+1・家庭菜園が設置可能に。'},
+ {id:'logistics',name:'物流街区',need:{pop:110,prosperity:62,trust:55,alertBelow:60},invest:700,housing:70,desc:'東に物流センターと搬入路。空き地+1・光回線が引けるように。'},
+ {id:'parkland',name:'公園緑地',need:{pop:140,prosperity:65,trust:60,alertBelow:55},invest:900,housing:60,desc:'森と池を残した大きな公園。人間の信頼が上がりやすくなる。'},
+ {id:'station',name:'駅前再開発',need:{pop:180,prosperity:70,trust:62,alertBelow:55},invest:1300,housing:90,desc:'南に新駅とロータリー。来客と人口が大きく伸びる。'},
+ {id:'business',name:'高層ビジネス街',need:{pop:230,prosperity:75,trust:65,alertBelow:50},invest:1800,housing:110,desc:'南東に高層オフィス群。地上事業の売上が伸びる。'},
+ {id:'metropolis',name:'大都市',need:{pop:300,prosperity:82,trust:70,alertBelow:45},invest:2600,housing:160,desc:'ホテルとタワーが並ぶ大都市に。街の最終段階。'}
 ]);
 // v3.5: what each district physically adds to the 32×32 surface. Outside the original 24×24 town the land is
 // wilderness (forest/meadow/pond) until a district develops it; roads are not limited to the grid.

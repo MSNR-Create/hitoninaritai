@@ -62,7 +62,7 @@ export const TECHS=Object.freeze([
   {id:'humanization',name:'人間化技術',branch:'final',tier:4,req:['adaptation','foreman','wordofmouth'],cost:600,samples:6,work:18,desc:'3つの未来から進路を選べる。'}
 ]);
 // v3.5 balance: deeper tiers cost more money and time.
-for(const t of TECHS){const m=[1,1,1.5,1.8,2.2][t.tier]??1;t.cost=Math.round(t.cost*m/5)*5;t.work=Math.round(t.work*(t.tier>=2?1.25:1));}
+for(const t of TECHS){const m=[1,1,1.25,1.45,1.7][t.tier]??1;t.cost=Math.round(t.cost*m/5)*5;t.work=Math.round(t.work*(t.tier>=2?1.25:1));}
 export const techById=id=>TECHS.find(t=>t.id===id);
 export function researchState(colony){
   const r=colony.research??{};
