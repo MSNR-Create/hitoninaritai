@@ -79,8 +79,8 @@ export const RECIPES=Object.freeze({
  sample_culture:{name:'研究試料培養',facility:'culture',in:{samples:1,water:1,compost:1},out:{samples:3},fee:6,power:true},
  extract:{name:'試料抽出',facility:'extractor',in:{residue:2,labwaste:1},out:{samples:1},fee:3},
  toolkit:{name:'精密工具組立',facility:'workshop',in:{parts:2,circuits:1},out:{toolkit:1},fee:5,power:true},
- battery:{name:'蓄電池組立',facility:'workshop',in:{circuits:1,fuel:1},out:{batteries:2},fee:3,power:true},
- circuit:{name:'電子基板組立',facility:'workshop',in:{parts:2,labwaste:1},out:{circuits:1},fee:4,power:true},
+ battery:{name:'蓄電池組立',facility:'workshop',in:{circuits:1,fuel:1},out:{batteries:3},fee:3,power:true},
+ circuit:{name:'電子基板組立',facility:'workshop',in:{parts:2,labwaste:1},out:{circuits:2},fee:4,power:true},
  food_preserve:{name:'保存食加工',facility:'kitchen',in:{vegetables:2,mushrooms:1},out:{food:7},fee:3},
  food_prep:{name:'キノコ定食',facility:'kitchen',in:{mushrooms:3},out:{food:6},fee:2},
  sweets_prep:{name:'菓子製造',facility:'kitchen',in:{vegetables:2},out:{sweets:3},fee:3},
@@ -94,7 +94,7 @@ export const RECIPES=Object.freeze({
  water_purify:{name:'再生水精製',facility:'water',in:{residue:1},out:{water:3},fee:2},
  composting:{name:'培地生成',facility:'recycler',in:{residue:2},out:{compost:3},fee:1},
  fuel_refine:{name:'燃料精製',facility:'recycler',in:{residue:2},out:{fuel:2},fee:2},
- parts:{name:'ジャンク解体',facility:'recycler',in:{salvage:3},out:{parts:2,labwaste:1},fee:2},
+ parts:{name:'ジャンク解体',facility:'recycler',in:{salvage:3},out:{parts:4,labwaste:1},fee:2},
  scrap_to_paper:{name:'紙資源再生',facility:'recycler',in:{salvage:2},out:{paper:3},fee:1},
  sort:{name:'選別',facility:'sorting',in:{salvage:2},out:{residue:1,labwaste:1},fee:1}
 });

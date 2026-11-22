@@ -14,7 +14,8 @@ const AUTO_RECIPES=['parts','sort','scrap_to_paper'];
  */
 export function runProduction(inventory,money,workers,facilities,opts={}){
  const inv={...inventory};let cash=money;const log=[];const prefs=opts.prefs??{},mods=opts.mods??{};
- const slots={...facilities};
+ // v3.9.2: a worker runs opts.shift batches per day; each building handles opts.slotsPer batches (defaults keep old 1/1 behaviour)
+ const slots=Object.fromEntries(Object.entries(facilities).map(([k,v])=>[k,v*(opts.slotsPer??1)]));
  // power: each generator gives 3 powered batches if it can burn 1 fuel (or 1 battery)
  let power=0,fuelBurned=false;const gens=facilities.generator??0;
  const hasFuel=()=>gens>0&&!fuelBurned&&((inv.fuel??0)>0||(inv.batteries??0)>0);
@@ -33,7 +34,7 @@ export function runProduction(inventory,money,workers,facilities,opts={}){
   for(const [k,v] of Object.entries(out))inv[k]=(inv[k]??0)+v;cash-=r.fee;slots[r.facility]--;
   log.push({worker:who,ok:true,recipe:id,name:r.name,out,fee:r.fee,building:curB});return true;};
  for(const w of workers){
-  const runs=1+(w.extra?1:0);curB=w.building??null;
+  const runs=(opts.shift??1)+(w.extra?1:0);curB=w.building??null;
   for(let i=0;i<runs;i++){
    // v2.5: a worker posted to a facility runs only that facility's chosen recipe (or any of its recipes on おまかせ).
    const ok=id=>{const r=CAT_RECIPES[id];return can(inv,r.in)&&cash>=r.fee&&fits(r)&&powered(r);};
