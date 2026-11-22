@@ -56,7 +56,7 @@ export function advanceSurfaceEconomy(surface,game,owned,rented,day){
  const housing=active.filter(p=>PROPERTY_ROLES[p.id]?.capacity).reduce((n,p)=>n+PROPERTY_ROLES[p.id].capacity,0);
  // v3.0: trust is pulled toward a target set by alert (mean-reverting with daily mood swings) instead of stepping to the bounds.
  const dist=surface.city?.districts??[];
- const tTarget=78-alert*.75+(active.some(p=>p.id==='clinic')?8:0)+(dist.includes('parkland')?6:0)+Math.min(8,(surface.city?.lots?Object.values(surface.city.lots).filter(l=>l.facility==='garden').length*4:0));
+ const tTarget=78+(surface.bonusTrust??0)-alert*.75+(active.some(p=>p.id==='clinic')?8:0)+(dist.includes('parkland')?6:0)+Math.min(8,(surface.city?.lots?Object.values(surface.city.lots).filter(l=>l.facility==='garden').length*4:0));
  const swing=((((day??0)*40503+17)>>>0)%7)-3;
  const trust=Math.max(0,Math.min(100,Math.round(surface.trust+(tTarget-surface.trust)*.18+swing)));
  const target=25+housing+Math.round(trust*.25)-Math.round(alert*.24);

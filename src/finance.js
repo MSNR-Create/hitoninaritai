@@ -1,5 +1,5 @@
 // Account transactions are authoritative UI history, not a second wallet.
-const categories=['アルバイト','フリマ売上','フリマ仕入れ','フリマ返品','梱包・手数料','生活物資仕入れ','建設','研究','物件契約','不動産購入','賃料','事件・補償','地上事業売上','地上施設維持費','不動産売却','施設維持費','強奪','フリマ梱包','フリマ販売手数料','製品出荷'];
+const categories=['アルバイト','フリマ売上','フリマ仕入れ','フリマ返品','梱包・手数料','生活物資仕入れ','建設','研究','物件契約','不動産購入','賃料','事件・補償','地上事業売上','地上施設維持費','不動産売却','施設維持費','強奪','フリマ梱包','フリマ販売手数料','製品出荷','目標ボーナス'];
 export const FINANCE_CATEGORIES=Object.freeze(categories);
 export function createLedger(openingBalance=300,startDay=1){return {openingBalance,startDay,transactions:[]};}
 export function addTransaction(ledger,{day,amount,category,note=''}){

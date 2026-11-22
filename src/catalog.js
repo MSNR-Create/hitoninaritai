@@ -74,7 +74,7 @@ export const ITEMS=Object.freeze({
 // Recipes in PRIORITY order (later production stages first). power:true needs a generator slot.
 /** v3.8 shipping: surplus crafted goods are sold to the surface every morning (price per unit, stock kept back). */
 // sell prices stay below purchase prices for anything you can buy (no buy→sell arbitrage)
-export const SELL=Object.freeze({toolkit:[80,2],batteries:[22,4],circuits:[18,4],makeup:[16,4],sweets:[3,6],media:[12,4],cleaner:[5,6],paper:[2,10],parts:[3,8],fuel:[3,6],vegetables:[3,10],mushrooms:[2,10],compost:[2,8],water:[1,10]});
+export const SELL=Object.freeze({toolkit:[120,2],batteries:[30,4],circuits:[30,4],makeup:[24,4],sweets:[5,6],media:[16,4],cleaner:[8,6],paper:[3,10],parts:[4,8],fuel:[4,6],vegetables:[3,10],mushrooms:[2,10],compost:[2,8],water:[1,10]});
 export const RECIPES=Object.freeze({
  sample_culture:{name:'研究試料培養',facility:'culture',in:{samples:1,water:1,compost:1},out:{samples:3},fee:6,power:true},
  extract:{name:'試料抽出',facility:'extractor',in:{residue:2,labwaste:1},out:{samples:1},fee:3},

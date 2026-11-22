@@ -14,6 +14,9 @@ import { FACILITIES, runProduction, ITEM_NAMES, SALVAGE_PACK } from './productio
 import * as ST from './storage.js';
 import { homeCapacity, homeAssignments } from './agent.js';
 import { clearSpriteCache } from './sprites.js';
+import { PROJECTS, projectById, stageOf, projectUnlocked, unlockText, fundStage, projectBonuses } from './projects.js';
+import { refreshOrders, deliverOrder } from './orders.js';
+import { GOALS, currentGoal } from './guide.js';
 import { dailyInfrastructure, upkeepOf, POWER_USE, synergyTotals, synergiesFor, previewSynergies, inShopRange, shopDistance, SHOP_RANGE, shopRangeTiles } from './infrastructure.js';
 import { unlockAudio, setMusic, sfx, setAudio, audioPrefs, EVENT_SFX } from './audio.js';
 import { FACILITY_DEFS, ITEMS, SELL, BUILD_CATEGORIES, TOOLS, RECIPES as CAT_RECIPES, recipesFor } from './catalog.js';
@@ -599,7 +602,7 @@ el('eventNext').addEventListener('click',closeEvent);
 el('eventDemoButton').addEventListener('click',()=>queueScenes(['friendship','warning','police','incident','conversion','loss','research','flea_claim','flea_good','flea_jackpot','flea_buzz','flea_fake','levelup','district','wifi_caught'].map((kind,i)=>({id:'demo-'+i,kind,day:game.day,message:sceneDefinition(kind).desc,reason:'演出確認用デモ（実際のゲーム状態は変化しません）'}))));
 el('eventDialog').addEventListener('cancel',e=>{e.preventDefault();closeEvent();});
 function queueScenes(events){for(const e of events){if(!['friendship','warning','police','conversion','loss','incident','research','ending','flea_claim','flea_good','flea_jackpot','flea_buzz','flea_crash','flea_fake','flea_mismatch','levelup','district','wifi_caught'].includes(e.kind))continue;eventQueue.push(e);}if(eventQueue.length>20)eventQueue=eventQueue.slice(-20);showNextEvent();}
-function updateEndingPanel(){if(colony.completedResearch.includes('humanization'))endingUnlocked=true;el('endingActions').hidden=!endingUnlocked;el('endingHint').textContent=endingUnlocked?'人間化技術が完成。住民たちの未来を選んでください。':'「人間化技術」を完成させると未来を選べます。';}
+function updateEndingPanel(){if(colony.completedResearch.includes('humanization')&&projectBonuses(colony).humanity)endingUnlocked=true;el('endingActions').hidden=!endingUnlocked;el('endingHint').textContent=endingUnlocked?'人間化計画が完成。住民たちの未来を選んでください。':colony.completedResearch.includes('humanization')?'人間化技術が完成！ 大型プロジェクト「人間化計画」の3段階を終えると未来を選べます。':'「人間化技術」の研究と、大型プロジェクト「人間化計画」の完成で未来を選べます。';}
 
 
 for(const b of document.querySelectorAll('[data-ending]'))b.addEventListener('click',()=>{const name={'human':'人間復帰','colony':'地下楽園','coexist':'共存'}[b.dataset.ending];queueScenes([{id:'final-'+b.dataset.ending,kind:'ending',day:game.day,message:`${name}エンド：住民たちは自分たちの未来を選んだ。引き続き自由に街を運営できます。`,reason:'人間化研究を完了し、進路を選択した'}]);el('endingResult').textContent=`到達：${name}エンド（継続プレイ可能）`;saveNow();});
@@ -632,7 +635,7 @@ const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().home
         let refusedNote=[];const caps=ST.capacities(worlds.underground);
         {const t=ST.intake(colony.inventory,'food',game.lastReport.harvest,caps);colony={...colony,inventory:t.inventory};if(t.refused)refusedNote.push(`食料${t.refused}個（食料庫が満杯）`);}
         // v2.0: salvage → production chain, then colonist growth & body maintenance
-        {const list={...(colony.shoppingList??{})};let packs=(game.lastReport.shoppers??0)*3;const got=[];
+        {const list={...(colony.shoppingList??{})};let packs=(game.lastReport.shoppers??0)*projectBonuses(colony).shopPack;const got=[];
          for(const [key,n0] of Object.entries(list)){let n=n0;while(n>0&&packs>0){const it=ITEMS[key];const qty=key==='food'?currentMods().foodPack:it.buy[0];const price=Math.ceil(it.buy[1]*currentMods().supplyMul);
            if(game.money<price){refusedNote.push(`${it.name}（資金不足）`);packs=0;break;}const t=ST.intake(colony.inventory,key,qty,caps);if(!t.accepted){refusedNote.push(`${it.name}（置き場が満杯）`);break;}
            colony={...colony,inventory:t.inventory};game={...game,money:game.money-price};moneyChange(-price,'生活物資仕入れ',`買い出し：${it.name}`,completedDay);got.push(`${it.icon}${t.accepted}`);n--;packs--;}
@@ -663,10 +666,16 @@ const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().home
          const a=homeAssignments(game,worlds.underground);const far=new Set(worlds.underground.buildings.filter(b=>b.kind==='home'&&!inShopRange(worlds.underground,b)).map(b=>b.id));
          game={...game,residents:game.residents.map(r=>{let imp=(r.impulse??0)+sy.impulse;let dec=(r.decay??0)+sy.decay;if(far.has(a[r.id]?.id))imp+=4;return {...r,impulse:Math.max(0,Math.min(100,imp)),decay:Math.max(0,dec)};})};
          if(far.size)refusedNote.push(`配給所が遠い住居が${far.size}棟（衝動+4/日）`);}
+        // v3.9 project bonuses, orders, guide
+        {const pb=projectBonuses(colony);
+         if(pb.decayMul<1)game={...game,residents:game.residents.map(r=>({...r,decay:Math.max(0,(r.decay??0)-(1-pb.decayMul)*2.2)}))};
+         if(pb.alertCut)game={...game,alert:Math.max(0,game.alert-pb.alertCut)};
+         colony={...colony,orderBoard:refreshOrders(colony.orderBoard??{},completedDay+1,producibleGoods())};
+         const warn=game.residents.some(r=>(r.decay??0)>=60)&&!connectedKind('wash');if(warn&&(colony.decayWarnDay??-99)<completedDay-8){colony={...colony,decayWarnDay:completedDay};showNotice('🧟 腐敗が進んでいます',`腐敗が90を超えると外で働けなくなり、収入が止まります。研究「衛生管理Ⅰ」→「洗浄台」を建てて毎朝洗いましょう。休ませると腐敗の進みは半分になります。`);}}
         // v3.5 zombie hunters: a few days of high alert can bring a raid at dawn; defence comes from guards, security rooms and gates.
         {const hi=game.alert>=60?(colony.highAlertDays??0)+1:0;colony={...colony,highAlertDays:hi};const has=id=>colony.completedResearch.includes(id);
          const patrols=game.residents.filter(r=>r.activeJob==='patrol').length;const sy=synergyTotals(worlds.underground);
-         const defense=Math.round(patrols*3*(has('repel')?1.5:1)+connectedKind('security')*(has('cameras')?6:3)+connectedKind('gate')*8+sy.defense+game.residents.length*.5);
+         const defense=Math.round(patrols*3*(has('repel')?1.5:1)+connectedKind('security')*(has('cameras')?6:3)+connectedKind('gate')*8+sy.defense+projectBonuses(colony).defense+game.residents.length*.5);
          const attack=Math.round((12+game.alert/4+completedDay/8)*(has('decoy')?.8:1));colony={...colony,defense,threat:attack};
          const roll=((completedDay*2654435761)>>>0)%100;
          if(hi===1&&has('cameras'))showNotice('📹 監視カメラが不審な人影を捉えた',`ゾンビバスターらしき人間が街を嗅ぎ回っています。警戒度が高いままだと数日内に襲撃されるかもしれません（防衛力${defense}／予想戦力${attack}）。見張りを増やすか警戒度を下げましょう。`);
@@ -681,14 +690,14 @@ const beforeTickMoney=game.money;worlds.underground.homeBonus=currentMods().home
         const capacity=colonyCapacity();
         const beforeEventsMoney2=game.money;
         const prevHistoryIds=new Set(social.history.map(e=>e.id)), hadResearch=colony.completedResearch.includes('impulse');
-        const researchers=Math.round(game.residents.filter(r=>r.activeJob==='research').reduce((n,r)=>n+C.researchPower(r),0)*100)/100,labCount=connectedLabs();const ar=advanceResearch(colony,researchers>0?Math.max(.5,researchers+connectedKind('archives')+synergyTotals(worlds.underground).research):0,labCount);colony=ar.colony;if(ar.completed){const t=techById(ar.completed);if(ar.completed==='humanization')endingUnlocked=true;queueScenes([{id:'tech-'+ar.completed+'-'+completedDay,kind:'research',day:completedDay,message:`${t.name}が完成！ ${t.desc}`,reason:`研究担当${researchers}体・研究室${labCount}棟で研究を続けた成果`}]);}
+        const researchers=Math.round(game.residents.filter(r=>r.activeJob==='research').reduce((n,r)=>n+C.researchPower(r),0)*100)/100,labCount=connectedLabs();const ar=advanceResearch(colony,researchers>0?Math.max(.5,(researchers+connectedKind('archives')+synergyTotals(worlds.underground).research)*projectBonuses(colony).researchMul):0,labCount);colony=ar.colony;if(ar.completed){const t=techById(ar.completed);if(ar.completed==='humanization')endingUnlocked=true;queueScenes([{id:'tech-'+ar.completed+'-'+completedDay,kind:'research',day:completedDay,message:`${t.name}が完成！ ${t.desc}`,reason:`研究担当${researchers}体・研究室${labCount}棟で研究を続けた成果`}]);}
         const daily=advanceColony(game,colony,labActive,capacity,currentMods());game=daily.game;colony=daily.colony;
         social=recordDeaths(social,game.day,daily.colony.report.deathNames);
         const relation=advanceSocial(social,game,colony,capacity);social=relation.social;game=relation.game;
         if(relation.conversion){colony={...colony,conversionCount:colony.conversionCount+1,nextResidentId:relation.conversion.id+1,inventory:{...colony.inventory,food:colony.inventory.food-2},report:{...colony.report,newFollowerName:relation.conversion.name}};game={...game,events:[...game.events,`${relation.conversion.name}が${relation.conversion.by}の眷属になった`].slice(-12)};}
         game={...game,food:colony.inventory.food};
         const todaysScenes=eventsForDay(0,social,colony,game).filter(e=>(e.kind==='incident'||e.kind==='research'||!prevHistoryIds.has(e.id))&&(e.kind!=='research'||!hadResearch));queueScenes(todaysScenes);updateEndingPanel();
-        moneyChange(game.money-beforeEventsMoney2,'事件・補償','対人事件・住民イベント',completedDay);const surfaceResult=advanceSurfaceEconomy(surfaceEconomy,game,owned,rented,completedDay);surfaceEconomy=surfaceResult.surface;
+        moneyChange(game.money-beforeEventsMoney2,'事件・補償','対人事件・住民イベント',completedDay);const surfaceResult=advanceSurfaceEconomy({...surfaceEconomy,bonusTrust:projectBonuses(colony).trust},game,owned,rented,completedDay);surfaceEconomy=surfaceResult.surface;
         {const prevHumans=surfaceResult.surface.humans,before=surfaceEconomy;const ownedHousing=RENTALS.filter(p=>(owned.includes(p.id)||rented.includes(p.id))&&PROPERTY_ROLES[p.id]?.capacity).reduce((n,p)=>n+PROPERTY_ROLES[p.id].capacity,0);
          const ct=CITY.advanceCity({...surfaceEconomy,humans:(before.humansPrev??prevHumans)},game.alert,completedDay,{ownedHousing,businesses:owned.length+rented.length});
          surfaceEconomy={...ct.surface,humansPrev:ct.surface.humans};game={...game,money:game.money+ct.money,alert:Math.min(100,game.alert+ct.alertAdd)};
@@ -752,7 +761,7 @@ viewport.appendChild(el('selectionPanel'));
 const sheet=document.createElement('div');sheet.id='mapSheet';sheet.className='map-sheet';sheet.hidden=true;
 const sheetHeader=document.createElement('div');sheetHeader.className='sheet-header';sheetHeader.innerHTML='<strong id="sheetTitle">メニュー</strong><button type="button" id="sheetClose" aria-label="パネルを閉じる">×</button>';
 const sheetBody=document.createElement('div');sheetBody.className='sheet-body';sheet.append(sheetHeader,sheetBody);viewport.append(sheet);
-const titles={city:'街の発展',property:'不動産・空き地',supply:'資材・生産',jobs:'仕事と住民',build:'地下建設',research:'研究ツリー',market:'フリマ経営',social:'人間関係',settings:'設定・セーブ'};
+const titles={projects:'大型プロジェクト',city:'街の発展',property:'不動産・空き地',supply:'資材・生産',jobs:'仕事と住民',build:'地下建設',research:'研究ツリー',market:'フリマ経営',social:'人間関係',settings:'設定・セーブ'};
 for(const section of [...document.querySelectorAll('.game-panel > [data-screen]')])sheetBody.append(section);
 function showPanel(id){
  const oldSheetHeight=sheet.hidden?0:sheet.getBoundingClientRect().height;
@@ -1091,5 +1100,38 @@ window.__zc={
 {const sn=showNotice;showNotice=function(t,b){window.__zc?.log.push(`D${game.day} ${t}: ${b}`);sn(t,b);};}
 
 // v3.8: part-time shifts available in town (grows with humans and districts)
-function townJobs(){const city=CITY.ensureCity(surfaceEconomy).city;return Math.max(4,Math.round(surfaceEconomy.humans/20+city.districts.length));}
+function producibleGoods(){const out=new Set();for(const r of Object.values(CAT_RECIPES))if(connectedKind(r.facility)>0)for(const k of Object.keys(r.out))out.add(k);return out;}
+function townJobs(){const city=CITY.ensureCity(surfaceEconomy).city;return Math.max(4,Math.round(surfaceEconomy.humans/20+city.districts.length))+projectBonuses(colony).townJobs;}
 setInterval(()=>{const e=el('jobSlots');if(!e)return;const paid=game.residents.filter(r=>JOBS[r.activeJob]?.pay>0).length;const n=townJobs();e.textContent=`🏙️ 街のバイト枠：${Math.min(paid,n)}/${n}人${paid>n?`（${paid-n}人は短時間シフトで報酬35%）`:''}。枠は街の人口と開発で増えます。`;},1000);
+// ===== v3.9 UI: grand projects, orders board, guided goals =====
+function projCtx(){return {districts:CITY.ensureCity(surfaceEconomy).city.districts.length,research:colony.completedResearch};}
+const itemTxt=o=>Object.entries(o).map(([k,n])=>`${ITEMS[k]?.icon??''}${ITEMS[k]?.name??k}×${n}`).join('・');
+function renderProjects(){const host=el('projectList');if(!host)return;const sig=JSON.stringify([colony.projects,game.money>>6,colony.inventory,projCtx().districts,colony.completedResearch.length]);if(host.dataset.sig===sig)return;host.dataset.sig=sig;host.replaceChildren();
+ for(const p of PROJECTS){const st=stageOf(colony,p.id),open=projectUnlocked(p,projCtx()),done=st>=p.stages.length;const card=document.createElement('div');card.className='proj-card'+(done?' done':open?'':' locked');
+  const pips=p.stages.map((_,i)=>`<i class="${i<st?'on':''}"></i>`).join('');
+  card.innerHTML=`<div class="proj-head"><span class="proj-icon">${p.icon}</span><div><b>${p.name}</b><small>${p.desc}</small></div><span class="pips">${pips}</span></div><p class="proj-eff">効果：${p.effect}</p>`;
+  if(done){const d=document.createElement('p');d.className='proj-next';d.textContent='✅ 完成！';card.append(d);}
+  else if(!open){const d=document.createElement('p');d.className='proj-next';d.textContent=`🔒 着手条件：${p.unlock.research?'研究「'+(techById(p.unlock.research)?.name??p.unlock.research)+'」':unlockText(p)}`;card.append(d);}
+  else{const s=p.stages[st];const lack=Object.entries(s.items).filter(([k,n])=>(colony.inventory[k]??0)<n);const d=document.createElement('p');d.className='proj-next';d.textContent=`第${st+1}段階：${s.money}G＋${itemTxt(s.items)}${lack.length?`（不足：${lack.map(([k,n])=>`${ITEMS[k].name}${n-(colony.inventory[k]??0)}`).join('・')}）`:''}`;card.append(d);
+   const b=document.createElement('button');b.className='invest-btn';b.textContent=`🌟 第${st+1}段階に着手`;b.disabled=game.money<s.money||lack.length>0;
+   b.addEventListener('click',()=>{const r=fundStage(colony,game.money,p.id,projCtx());if(!r.ok)return;colony=r.colony;game={...game,money:r.money};moneyChange(-r.cost,'建設',`${p.name} 第${r.stage}段階`);sfx('levelup');
+    showNotice(`${p.icon} ${p.name}${r.done?' 完成！':` 第${r.stage}段階 完了`}`,r.done?(p.id==='humanity'?'住民たちに人間化の処置を施す準備が整った。研究画面の「人間化技術・エンディング」で未来を選べます。':`${p.effect}。コロニーの暮らしが大きく変わった！`):`${p.effect}。次の段階に進むとさらに効果が上がります。`);updateEndingPanel();updateEconomy();saveNow();renderProjects();});card.append(b);}
+  host.append(card);}}
+function renderOrders(){const host=el('orderList');if(!host)return;const board=colony.orderBoard??{};const sig=JSON.stringify([board.orders,colony.inventory,game.day]);if(host.dataset.sig===sig)return;host.dataset.sig=sig;host.replaceChildren();
+ const os=board.orders??[];if(!os.length){const p=document.createElement('small');p.textContent='翌朝から注文が届きます。施設で作れる製品ほど注文が来やすくなります。';host.append(p);return;}
+ for(const o of os){const have=colony.inventory[o.item]??0;const row=document.createElement('div');row.className='order-row';const left=o.due-game.day;
+  row.innerHTML=`<span class="oi">${ITEMS[o.item]?.icon??''}</span><span><b>${ITEMS[o.item]?.name??o.item}×${o.qty}</b><small>${o.buyer}・あと${left}日・在庫${have}</small></span><b class="or">${o.reward}G</b>`;
+  const b=document.createElement('button');b.textContent='納品';b.disabled=have<o.qty;b.addEventListener('click',()=>{const r=deliverOrder(colony.orderBoard,colony.inventory,o.id);if(!r.ok)return;colony={...colony,inventory:r.inventory,orderBoard:r.state};game={...game,money:game.money+r.reward};moneyChange(r.reward,'製品出荷',`注文納品：${r.order.buyer}（${ITEMS[o.item].name}×${o.qty}）`);sfx('coin');updateEconomy();saveNow();renderOrders();});
+  row.append(b);host.append(row);}
+ const rep=board.ordersDone??0;const f=document.createElement('small');f.textContent=`納品実績 ${rep}件（実績が増えると報酬が最大+40%）`;host.append(f);}
+function guideState(){return {openedJobs:!!colony.openedJobs,research:colony.completedResearch,active:researchState(colony).active,kinds:worlds.underground.buildings.filter(b=>worlds.underground.connectivity?.[b.id]).map(b=>b.kind),ordersDone:colony.orderBoard?.ordersDone??0,properties:owned.length+rented.length,districts:CITY.ensureCity(surfaceEconomy).city.districts.length,projectStages:Object.values(colony.projects??{}).reduce((a,b)=>a+b,0),humanity:projectBonuses(colony).humanity};}
+function updateGoal(){const pill=el('goalPill');if(!pill)return;const done=colony.goalsDone??[];const st=guideState();
+ for(const g of GOALS){if(done.includes(g.id))continue;if(g.done(st)){colony={...colony,goalsDone:[...done,g.id]};if(g.reward){game={...game,money:game.money+g.reward};moneyChange(g.reward,'目標ボーナス',`目標達成ボーナス：${g.title}`);}sfx('good');showNotice(`🎯 目標達成！ ${g.icon} ${g.title}`,g.reward?`ごほうび +${g.reward}G。次の目標が表示されます。`:'おめでとう！');saveNow();}break;}
+ const g=currentGoal(colony.goalsDone??[]);if(!g){pill.hidden=true;return;}pill.hidden=false;const n=(colony.goalsDone??[]).length;const txt=`🎯 ${n+1}/${GOALS.length} ${g.icon} ${g.title}`;if(pill.dataset.t!==txt){pill.dataset.t=txt;pill.innerHTML=`<b>${txt}</b><small>${g.hint}</small>`;}pill.dataset.panel=g.panel;}
+el('goalPill').addEventListener('click',()=>{const p=el('goalPill').dataset.panel;if(p)showPanel(p);});
+{const sp=showPanel;showPanel=function(id){if(id==='jobs'&&!colony.openedJobs)colony={...colony,openedJobs:true};return sp(id);};}
+setInterval(()=>{try{renderProjects();renderOrders();updateGoal();}catch(e){console.error(e);}},800);
+// research: buy missing samples straight from the detail panel
+setInterval(()=>{const t=selectedTech&&techById(selectedTech);const host=el('researchDetailDesc');if(!t||!host)return;let b=el('buySamplesBtn');const need=t.samples-(colony.inventory.samples??0);const st=techStatus(colony,t.id);
+ if(st==='available'&&need>0){if(!b){b=document.createElement('button');b.id='buySamplesBtn';b.className='mini-btn';b.addEventListener('click',()=>{const n=t.samples-(colony.inventory.samples??0);colony={...colony,shoppingList:{...(colony.shoppingList??{}),samples:Math.min(9,Math.max(n,(colony.shoppingList??{}).samples??0))}};saveNow();showNotice('🛒 研究サンプルを買い出しリストに追加',`今夜、買い出し担当（または「夜の稼ぎはおまかせ」の住民）が研究サンプル×${n}を買ってきます（1個${Math.ceil(ITEMS.samples.buy[1]*currentMods().supplyMul)}G）。`);});}
+  b.textContent=`🛒 研究サンプルが${need}個足りません → 今夜買い出しへ`;if(b.parentElement!==host.parentElement)host.after(b);}else if(b)b.remove();},700);
