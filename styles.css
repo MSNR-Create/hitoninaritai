@@ -332,3 +332,5 @@ button:not(:disabled),[role="button"]{ -webkit-tap-highlight-color:transparent; 
 .order-list{display:grid;gap:4px;margin:6px 0 10px}.order-row{display:grid;grid-template-columns:28px 1fr auto auto;gap:8px;align-items:center;padding:6px 8px;border-radius:9px;background:#18323b;border:1px solid #33505b}
 .order-row .oi{font-size:20px}.order-row small{display:block;font-size:10px;color:#b8cfc8}.order-row .or{color:#f0d080}.order-row button{padding:6px 10px;border-radius:8px;border:1px solid #a5cdaa;background:#2a5a44;color:#fff;font-weight:700}.order-row button:disabled{opacity:.45}
 #buySamplesBtn{margin-top:6px;width:100%;padding:8px;font-size:12px;background:#5a4a1c;border-color:#c9a46a;color:#fff4c8}
+.dlg-toast{position:sticky;bottom:6px;margin:8px auto 0;max-width:92%;padding:8px 12px;border-radius:10px;background:#2b1d12;border:1px solid #f0d080;color:#fff4c8;font-size:12px;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s;pointer-events:none}
+.dlg-toast.show{opacity:1;transform:none}

@@ -131,7 +131,9 @@ function updateConstruction(){updateBuildButtons();
     const active=btn.dataset.tool===tool;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
   }
 }
-function status(message){el('buildMessage').textContent=message;}
+function status(message){el('buildMessage').textContent=message;const d=[...document.querySelectorAll('dialog[open]')].pop();if(d&&message)dialogToast(d,message);}
+// v3.9.3: feedback must be visible above a modal (it used to land on the status line hidden behind it)
+function dialogToast(d,message){let t=d.querySelector('.dlg-toast');if(!t){t=document.createElement('div');t.className='dlg-toast';t.setAttribute('role','status');d.append(t);}t.textContent=message;t.classList.remove('show');void t.offsetWidth;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600);}
 function refreshConnectivity(){worlds.underground.connectivity=connectedFacilities(worlds.underground);}
 function setTool(next){if(next!==tool)buildRotated=false;tool=next;pathStart=null;corridorChoice=null;buildChoice=null;demolishChoice=null;hoverTile=state.selected.underground;placement=null;updateConstruction();updatePlacement();
  status(tool==='path'?'通路：始点を長押し→指を滑らせて離すと施工（タップ2回でも可）。ドラッグだけならマップ移動。':BUILDABLE.includes(tool)?`${FACILITY_NAMES[tool]} ${FACILITY_SIZES[tool].join('×')}・${BUILD_COSTS[tool]}G：タップで仮置き→範囲内を再タップで建設。仮置きを長押しで移動。${FACILITIES[tool]?.tech&&!colony.completedResearch.includes(FACILITIES[tool].tech)?`（要研究：${techById(FACILITIES[tool].tech).name}）`:''}`:tool==='unlock'?'閉鎖区画をタップして選択し、再タップして開放。':tool==='demolish'?'施設・通路をタップして選択→同じ対象を再タップして撤去。':'マップを観察できます。');}
@@ -393,16 +395,14 @@ function updateRentalPanel(){
  el('buySelected').disabled=!property||owned.includes(property.id)||game.money<PURCHASE_PRICES[property.id];
  el('rentalInfo').textContent=property?`${property.name}（${property.w}×${property.h}） / 賃貸：契約${property.deposit}G、毎朝${property.rent}G / 購入：${PURCHASE_PRICES[property.id]}G。${owned.includes(property.id)?'購入済み':rented.includes(property.id)?'賃貸契約中':''}`:'地上マップでアパート・店舗・倉庫をタップしてください。';
 }
-el('rentSelected').addEventListener('click',()=>{
- const t=state.selected.surface,p=selectProperty(RENTALS,t.x,t.y);if(!p)return;
- const r=rentProperty(rented,game.money,p.id);if(!r.ok){el('rentalInfo').textContent=r.reason;return;}
- rented=r.rented;game={...game,money:r.money};moneyChange(-r.deposit,'物件契約',p.name+'の契約');updateEconomy();saveNow();
-});
-el('buySelected').addEventListener('click',()=>{
- const t=state.selected.surface,p=selectProperty(RENTALS,t.x,t.y);if(!p)return;
- const r=buyProperty(owned,rented,game.money,p.id);if(!r.ok){el('rentalInfo').textContent=r.reason;return;}
- const before=game.money;owned=r.owned;rented=r.rented;game={...game,money:r.money};moneyChange(r.money-before,'不動産購入',p.name+'の購入');updateEconomy();saveNow();
-});
+// v3.9.3: rent/buy act on an explicit property (the dialog used to forward to the map-selection buttons and did nothing when opened from the list)
+function doRent(p){if(!p)return '物件が選ばれていません';const r=rentProperty(rented,game.money,p.id);if(!r.ok)return r.reason;
+ rented=r.rented;game={...game,money:r.money};moneyChange(-r.deposit,'物件契約',p.name+'の契約');sfx('pay');updateEconomy();updateSurfacePanel?.();saveNow();return null;}
+function doBuy(p){if(!p)return '物件が選ばれていません';const r=buyProperty(owned,rented,game.money,p.id);if(!r.ok)return r.reason;
+ const before=game.money;owned=r.owned;rented=r.rented??rented;game={...game,money:r.money};moneyChange(r.money-before,'不動産購入',p.name+'の購入');sfx('pay');updateEconomy();updateSurfacePanel?.();saveNow();return null;}
+const selectedProperty=()=>{const t=state.selected.surface;return t?selectProperty(RENTALS,t.x,t.y):null;};
+el('rentSelected').addEventListener('click',()=>{const e=doRent(selectedProperty());if(e)el('rentalInfo').textContent=e;});
+el('buySelected').addEventListener('click',()=>{const e=doBuy(selectedProperty());if(e)el('rentalInfo').textContent=e;});
 
 function openPropertyDialog(tile){
  const p=selectProperty(RENTALS,tile.x,tile.y);if(!p)return;
@@ -416,7 +416,7 @@ function renderPropertyDialog(){
  el('propertyDetails').textContent=`${role?.name??'地上物件'}：${role?.detail??''}\n面積 ${p.w}×${p.h}／契約金 ${p.deposit}G／日額家賃 ${p.rent}G／購入 ${p.purchase}G\n状態：${mine?(sublet?'所有・人間に貸出中':'所有・自営中'):rental?'賃借・自営中':'未契約'}。\n立地：${location?.grade??'不明'}／道路接面 ${location?.frontage??0}／集客倍率 ${location?.accessibility??1}倍\n現在の売却相場：${propertyValue(p.id,surfaceEconomy)}G（購入価格の${Math.round(propertyValue(p.id,surfaceEconomy)/p.purchase*100)}%・信頼/人口/立地と日々の相場で変動）\n街の人間 ${surfaceEconomy.humans}人／信頼 ${surfaceEconomy.trust}/100／来客 ${surfaceEconomy.last?.visitors??'—'}人`;
  const actions=el('propertyDialogActions');actions.replaceChildren();
  const button=(label,handler,disabled=false)=>{const b=document.createElement('button');b.textContent=label;b.disabled=disabled;b.addEventListener('click',handler);actions.append(b);};
- if(!mine&&!rental){button(`借りる ${p.deposit}G`,()=>{el('rentSelected').click();renderPropertyDialog();},game.money<p.deposit);button(`買う ${p.purchase}G`,()=>{el('buySelected').click();renderPropertyDialog();},game.money<p.purchase);}
+ if(!mine&&!rental){button(`借りる ${p.deposit}G`,()=>{const e=doRent(p);if(e)showNotice('借りられません',e);renderPropertyDialog();},game.money<p.deposit);button(`買う ${p.purchase}G`,()=>{const e=doBuy(p);if(e)showNotice('買えません',e);renderPropertyDialog();},game.money<p.purchase);}
  else if(mine){if(sublet)button('人間への貸出を終了（旧機能）',()=>{const r=tradeProperty(surfaceEconomy,owned,rented,p.id,sublet?'unlease':'lease',game.money);if(!r.ok)return;surfaceEconomy=r.surface;renderPropertyDialog();updateSurfacePanel();saveNow();});button(`売る +${propertyValue(p.id,surfaceEconomy)}G（相場）`,()=>{const r=tradeProperty(surfaceEconomy,owned,rented,p.id,'sell',game.money);if(!r.ok){el('propertyDetails').textContent+='\n'+r.reason;return;}const diff=r.money-game.money;owned=r.owned;game={...game,money:r.money};moneyChange(diff,'不動産売却',p.name+'を売却');renderPropertyDialog();updateEconomy();saveNow();},sublet);}
  else button('解約する（契約金は戻りません）',()=>{rented=rented.filter(v=>v!==p.id);sfx('pay');renderPropertyDialog();updateEconomy();updateSurfacePanel();saveNow();});
 }
@@ -869,7 +869,7 @@ function openColonist(id){
  const host=el('propertyDialogActions');host.replaceChildren();const grid=document.createElement('div');grid.className='colonist-stats';
  for(const [k,label] of Object.entries(C.STATS)){const lab=document.createElement('span');lab.textContent=label;const bar=document.createElement('div');bar.className='bar';const i=document.createElement('i');i.style.width=`${r.stats[k]*10}%`;i.style.background='#74c8b6';bar.append(i);
   const b=document.createElement('button');b.textContent=`${r.stats[k]} ＋`;b.disabled=!(r.sp>0)||r.stats[k]>=10;b.addEventListener('click',()=>{const res=C.allocate(game.residents[idx],k);if(res.ok){game.residents[idx]=res.resident;saveNow();refreshResidentRows();openColonist(id);}});grid.append(lab,bar,b);}
- const wash=document.createElement('button');wash.textContent='🧽 手作業洗浄（衛生用品1・10G）';wash.addEventListener('click',()=>{const res=C.handWash(game.residents[idx],colony.inventory.care,game.money);if(res.ok){game.residents[idx]=res.resident;colony={...colony,inventory:{...colony.inventory,care:res.care}};game={...game,money:res.money};moneyChange(-10,'生活物資仕入れ',r.name+'の手作業洗浄');updateEconomy();saveNow();openColonist(id);}else status(res.reason);});
+ const wash=document.createElement('button');{const care=colony.inventory.care??0;wash.textContent=care<1?'🧽 手作業洗浄（衛生用品がありません：資材で買い出しを）':game.money<10?'🧽 手作業洗浄（10G必要）':`🧽 手作業洗浄（衛生用品1・10G／在庫${care}）`;wash.disabled=care<1||game.money<10;}wash.addEventListener('click',()=>{const res=C.handWash(game.residents[idx],colony.inventory.care,game.money);if(res.ok){game.residents[idx]=res.resident;colony={...colony,inventory:{...colony.inventory,care:res.care}};game={...game,money:res.money};moneyChange(-10,'生活物資仕入れ',r.name+'の手作業洗浄');sfx('good');updateEconomy();saveNow();openColonist(id);status(`🧽 ${r.name}を洗った（腐敗−5・清潔感アップ）`);}else status(res.reason);});
  host.append(grid,wash);if(!d.open)d.showModal();
 }
 function lotOwnerText(lot,city){const st=city.lots[lot.id]??{};const f=st.facility&&CITY.LOT_FACILITIES[st.facility];return `${CITY.lotOpen(city,lot)?'':'🔒 '}${st.leased?'契約中':'未契約'}${f?'・'+f.icon+f.name:''}`;}
@@ -1095,6 +1095,8 @@ window.__zc={
  trade(id,action){if(action==='rent'){const r=rentProperty(rented,game.money,id);if(!r.ok)return r.reason;rented=r.rented;game={...game,money:r.money};moneyChange(-r.deposit,'物件契約',id);return 'ok';}
   if(action==='buy'){const r=buyProperty(owned,rented,game.money,id);if(!r.ok)return r.reason;owned=r.owned;rented=r.rented??rented;game={...game,money:r.money};moneyChange(-r.price,'不動産購入',id);return 'ok';}
   const r=tradeProperty(surfaceEconomy,owned,rented,id,action,game.money);if(!r.ok)return r.reason;surfaceEconomy=r.surface;owned=r.owned??owned;rented=r.rented??rented;game={...game,money:r.money};return 'ok';},
+ give(m=0,items={}){game={...game,money:game.money+m};colony={...colony,inventory:{...colony.inventory,...items}};updateEconomy();},
+ openRes(i){openColonist(game.residents[i].id);},openB(i){openBuilding(worlds.underground.buildings[i].id);},
  orders(){return colony.orderBoard?.orders??[];},
  deliver(id){const r=deliverOrder(colony.orderBoard,colony.inventory,id);if(!r.ok)return r.reason;colony={...colony,inventory:r.inventory,orderBoard:r.state};game={...game,money:game.money+r.reward};moneyChange(r.reward,'製品出荷','注文納品');return 'ok';},
  fund(id){const r=fundStage(colony,game.money,id,projCtx());if(!r.ok)return r.reason??'no';colony=r.colony;game={...game,money:r.money};moneyChange(-r.cost,'建設','プロジェクト');updateEndingPanel();return 'ok';},
