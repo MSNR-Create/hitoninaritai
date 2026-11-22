@@ -6,7 +6,7 @@ export const ORDER_GOODS=Object.freeze(['circuits','batteries','toolkit','makeup
 /** Generate up to 3 open orders; items the colony can produce are favoured. Reward = qty × sell price × (1.8〜2.4) × reputation bonus. */
 export function refreshOrders(state,day,producible){const open=(state.orders??[]).filter(o=>o.due>=day&&!o.done);const out=[...open];let k=0;
  const pool=ORDER_GOODS.filter(g=>producible.has(g));const any=pool.length?pool:['parts','paper','fuel'];
- while(out.length<3&&k<6){const seed=day*31+k*7+(state.orderSeq??0);const item=any[Math.floor(r(seed)*any.length)];const unit=SELL[item]?.[0]??3;
+ while(out.length<3&&k<6){const seed=day*31+k*7+(state.orderSeq??0);const fresh=any.filter(g=>!out.some(o=>o.item===g));const from=fresh.length?fresh:any;const item=from[Math.floor(r(seed)*from.length)];const unit=SELL[item]?.[0]??3;
   const qty=Math.max(2,Math.round((unit>=30?2:unit>=10?4:8)*(.8+r(seed+1)*.8)));const rep=Math.min(.4,(state.ordersDone??0)*.02);
   const reward=Math.round(qty*unit*(1.8+r(seed+2)*.6)*(1+rep));out.push({id:`o${day}-${k}-${state.orderSeq??0}`,item,qty,reward,due:day+3+Math.floor(r(seed+3)*3),buyer:BUYERS[Math.floor(r(seed+4)*BUYERS.length)]});k++;}
  return {...state,orders:out,orderSeq:(state.orderSeq??0)+k};}
